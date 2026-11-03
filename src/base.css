@@ -219,3 +219,9 @@ h3.sub { font-size: 1rem; font-weight: 700; margin: 0; }
 .draw-list th:nth-child(2), .draw-list td:nth-child(2) { width: 104px; }
 .draw-list th:nth-child(4), .draw-list td:nth-child(4) { width: 150px; }
 .draw-list th:nth-child(5), .draw-list td:nth-child(5) { width: 56px; }
+
+/* Disclaimer shown on every page above the footer */
+.disclaimer { border: 1.5px solid var(--rule); border-radius: var(--radius); padding: 18px 20px; display: grid; gap: 8px; }
+.disclaimer h2 { font-size: .95rem; font-weight: 700; }
+.disclaimer ul { margin: 0; padding-left: 1.1em; display: grid; gap: 6px; color: var(--muted); font-size: .86rem; max-width: 72ch; }
+.disclaimer strong { color: var(--ink); font-weight: 700; }

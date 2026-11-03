@@ -57,6 +57,16 @@
 
   {% block content %}{% endblock %}
 
+  <aside class="disclaimer" aria-labelledby="disclaimer-h">
+    <h2 id="disclaimer-h">이용 안내</h2>
+    <ul>
+      <li>{{ site.name }}의 번호 생성과 분석은 지난 당첨번호를 재미로 살펴보는 서비스예요. <strong>당첨을 보장하거나 당첨 확률을 높여주지 않아요.</strong></li>
+      <li>로또는 매 회차 독립적인 추첨이라 과거 결과가 다음 결과에 영향을 주지 않아요. 모든 번호 조합의 당첨 확률은 같아요.</li>
+      <li>당첨번호, 당첨금, 세금 정보는 참고용이에요. 정확한 내용은 동행복권 공식 사이트와 지급 은행에서 확인하세요. 이 정보로 생긴 결과에 대해 책임지지 않아요.</li>
+      <li>복권은 만 19세 이상만 살 수 있어요. 감당할 수 있는 금액 안에서 즐겨주세요. 도박 문제로 고민된다면 한국도박문제예방치유원(국번 없이 1336)에서 무료로 상담받을 수 있어요.</li>
+    </ul>
+  </aside>
+
   <footer>데이터: <a href="https://github.com/smok95/lotto" target="_blank" rel="noopener">smok95/lotto</a> (동행복권 공개 당첨번호). 정확한 결과는 동행복권 공식 사이트에서 확인하세요. 마지막 업데이트: {{ summary.latest.date }} ({{ summary.latest.no }}회)</footer>
 </div>
 
