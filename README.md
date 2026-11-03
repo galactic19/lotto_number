@@ -9,10 +9,14 @@
 ## 최신 회차 반영
 
 ```bash
+pip install -r requirements.txt
+```
+
+```bash
 python3 scripts/build.py --update
 ```
 
-`data/all.json`을 새로 받아 `src/template.html`에 넣고 `index.html`을 다시 만듭니다.
+`data/all.json`을 새로 받아 `src/template.html`에 넣고 `index.html`을 다시 만듭니다. 폰트(Pretendard)는 페이지에 쓰인 글자만 서브셋해서 HTML에 내장해요.
 
 ## 알고리즘
 
