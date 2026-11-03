@@ -41,7 +41,7 @@ python3 scripts/build.py --update
 
 `src/template.html`의 `CONFIG.ads`에 승인받은 값을 넣고 다시 빌드하면 광고가 켜집니다. 값이 비어 있으면 광고 자리는 보이지 않아요.
 
-- 카카오 애드핏: `provider: "adfit"`, 각 슬롯의 `adfitMobile`(320×100)·`adfitDesktop`(728×90)에 `DAN-…` 단위 ID
+- 쿠팡 파트너스: `provider: "coupang"`, `coupang.trackingCode`에 `AF…`, 각 슬롯의 `coupangId`에 다이나믹 배너 ID. 법정 고지 문구가 배너 아래에 자동으로 붙어요
 - 구글 애드센스: `provider: "adsense"`, `adsenseClient`에 `ca-pub-…`, 각 슬롯의 `adsenseSlot`에 슬롯 ID
 
 페이지 주소 끝에 `#ad-preview`를 붙이면 광고 자리 위치를 미리 볼 수 있어요.
