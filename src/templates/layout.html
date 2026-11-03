@@ -7,6 +7,9 @@
 {%- endif %}
 <title>{% if inline %}{{ site.name }}{% else %}{{ page.title }}{% endif %}</title>
 <meta name="claude:viewport-fit-sides" content="cover">
+<meta name="theme-storage-key" content="{{ site.theme_key }}">
+{#- Apply the saved theme before first paint so the page never flashes the OS theme. common.js validates it later. #}
+<script>try{var k=document.querySelector('meta[name="theme-storage-key"]').content,t=localStorage.getItem(k);if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
 {%- if not inline %}
 <meta name="description" content="{{ page.description }}">
 <link rel="canonical" href="{{ page.url }}">

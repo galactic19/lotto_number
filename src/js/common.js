@@ -95,7 +95,7 @@ function renderSeg(containerId, options, isActive, onSelect) {
 
 /* ───────── Theme (system / light / dark), remembered per browser ───────── */
 class ThemeStore {
-  static key = "lotto-lab-theme";
+  static key = document.querySelector('meta[name="theme-storage-key"]').content;
   static get current() { return document.documentElement.dataset.theme || SITE.themes[0].value; }
   static read() { try { return localStorage.getItem(ThemeStore.key); } catch { return null; } }
   static apply(value) {

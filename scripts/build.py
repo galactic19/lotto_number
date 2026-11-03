@@ -55,6 +55,7 @@ class Site:
     lang: str = "ko"
     og_image: str = "og.png"
     og_size: tuple[int, int] = (1200, 630)
+    theme_key: str = "lotto-lab-theme"
 
     def absolute(self, path: str = "") -> str:
         return self.url + path
