@@ -1,4 +1,5 @@
 <title>로또 연구소 6/45</title>
+<!--__HEAD__-->
 <meta name="claude:viewport-fit-sides" content="cover">
 <style>
 /*__FONT__*/
@@ -128,6 +129,13 @@ td.num { font-weight: 600; }
 .ad-slot::before { content: "광고"; font-size: .72rem; color: var(--muted); }
 .ad-slot .ad-preview { width: min(100%, var(--ad-w)); height: var(--ad-h); border: 1.5px dashed var(--bar);
   border-radius: 10px; display: grid; place-items: center; color: var(--muted); font-size: .84rem; }
+.prose { gap: 12px; }
+.prose h3 { font-size: 1rem; font-weight: 700; margin: 8px 0 0; }
+.prose p, .prose dd { color: var(--muted); max-width: 68ch; }
+.prose dl { display: grid; grid-template-columns: max-content 1fr; gap: 8px 16px; margin: 0; }
+.prose dt { font-weight: 700; }
+.prose dd { margin: 0; }
+@media (max-width: 520px) { .prose dl { grid-template-columns: 1fr; gap: 2px; } .prose dd { margin-bottom: 8px; } }
 footer { color: var(--muted); font-size: .82rem; padding-top: 8px; }
 footer a { color: inherit; }
 .go:disabled { opacity: .55; cursor: progress; }
@@ -190,7 +198,23 @@ footer a { color: inherit; }
     <p class="note">로또는 매 회차 독립 시행이라 어떤 알고리즘도 당첨 확률을 바꾸지 못해요. 1등 확률은 모든 조합이 똑같이 1/<span id="odds" class="mono"></span>이에요. 이 페이지는 데이터를 가지고 노는 실험실이에요. 재미로만 즐겨주세요.</p>
   </section>
 
-  <footer>데이터: <a href="https://github.com/smok95/lotto" target="_blank" rel="noopener">smok95/lotto</a> (동행복권 공개 당첨번호). 정확한 결과는 동행복권 공식 사이트에서 확인하세요.</footer>
+  <section class="card prose" aria-labelledby="about-h">
+    <h2 id="about-h">로또 연구소는 이렇게 번호를 골라요</h2>
+    <p><!--__SUMMARY__--></p>
+    <h3>알고리즘</h3>
+    <dl>
+      <dt>핫넘버</dt><dd>최근 회차에서 자주 나온 번호에 더 높은 확률을 줘요. 흐름을 타는 번호를 따라가는 방식이에요.</dd>
+      <dt>콜드넘버</dt><dd>마지막으로 나온 뒤 오래 쉬고 있는 번호일수록 확률을 높여요. 이른바 '나올 때가 된 번호'예요.</dd>
+      <dt>동반출현</dt><dd>1회부터 지금까지 같은 회차에 함께 나온 번호 쌍을 세고, 그 짝을 따라 조합을 이어 붙여요.</dd>
+      <dt>흐름 추적</dt><dd>직전 회차 번호 다음에 어떤 번호가 이어서 나왔는지 세는 마르코프 전이 방식이에요.</dd>
+      <dt>균형 랜덤</dt><dd>완전 무작위로 뽑은 뒤 번호 합계, 홀짝 비율, 낮은 번호와 높은 번호 비율, 연속 번호 개수가 역대 당첨번호의 일반적인 범위에 드는 조합만 남겨요.</dd>
+      <dt>순수 랜덤</dt><dd>데이터를 전혀 쓰지 않는 대조군이에요. 다른 알고리즘이 정말 나은지 비교하는 기준이 돼요.</dd>
+    </dl>
+    <h3>데이터와 업데이트</h3>
+    <p>동행복권이 공개한 1회부터의 전체 당첨번호를 사용해요. 매주 토요일 추첨이 끝나면 일요일 오전에 자동으로 새 회차를 반영해요.</p>
+  </section>
+
+  <footer>데이터: <a href="https://github.com/smok95/lotto" target="_blank" rel="noopener">smok95/lotto</a> (동행복권 공개 당첨번호). 정확한 결과는 동행복권 공식 사이트에서 확인하세요. <!--__UPDATED__--></footer>
 </div>
 
 <script>

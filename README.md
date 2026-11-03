@@ -16,7 +16,7 @@ pip install -r requirements.txt
 python3 scripts/build.py --update
 ```
 
-`data/all.json`을 새로 받아 `src/template.html`에 넣고 `index.html`을 다시 만듭니다. 폰트(Pretendard)는 페이지에 쓰인 글자만 서브셋해서 HTML에 내장해요.
+`data/all.json`을 새로 받아 `index.html`(검색엔진용 메타·구조화 데이터 포함), `og.png`(공유 미리보기), `sitemap.xml`을 다시 만듭니다. 사이트 주소·제목은 `scripts/build.py`의 `Site`에서 바꿔요. 폰트(Pretendard)는 페이지에 쓰인 글자만 서브셋해서 HTML에 내장해요.
 
 ## 알고리즘
 
