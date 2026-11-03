@@ -48,9 +48,12 @@ header { display: grid; gap: 10px; padding-block: 8px 20px; }
 .latest { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; margin-top: 8px;
   background: var(--surface); border-radius: var(--radius); padding: 16px 20px; }
 .balls { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-.ball { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center;
+.ball { flex: none; width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center;
   font-weight: 700; font-size: .95rem; letter-spacing: 0; color: var(--ball-text); background: var(--c);
   font-variant-numeric: tabular-nums; }
+.ball.reel { background: transparent; overflow: hidden; display: block; }
+.reel .strip { display: flex; flex-direction: column; width: 100%; height: 100%; will-change: transform; }
+.reel .cell { flex: 0 0 100%; display: grid; place-items: center; background: var(--c); }
 .plus { color: var(--muted); font-weight: 600; padding-inline: 2px; }
 
 /* Strategy picker */
@@ -120,10 +123,8 @@ footer a { color: inherit; }
 .why { transition: opacity .3s; }
 .why.pending { opacity: 0; }
 @media (prefers-reduced-motion: no-preference) {
-  .ball.rolling { animation: spin .22s linear infinite; filter: saturate(.7); }
-  .ball.settled { animation: settle .45s cubic-bezier(.3, 1.6, .5, 1); }
-  @keyframes spin { 0% { transform: translateY(0) rotate(0); } 50% { transform: translateY(-3px) rotate(180deg); } 100% { transform: translateY(0) rotate(360deg); } }
-  @keyframes settle { 0% { transform: scale(.75); } 100% { transform: scale(1); } }
+  .ball.settled { animation: settle .35s ease-out; }
+  @keyframes settle { 0% { transform: scale(1.12); } 100% { transform: scale(1); } }
 }
 @media (max-width: 520px) { .card { padding: 20px 16px; } .go { width: 100%; margin-left: 0; } }
 </style>
@@ -184,7 +185,8 @@ const CONFIG = Object.freeze({
   tickets: { min: 1, max: 10, initial: 5 },
   recentWindow: 50,
   chartTicks: 5,
-  roll: { frameMs: 55, baseMs: 600, perBallMs: 130, perTicketMs: 160 },
+  roll: { baseMs: 900, perBallMs: 150, perTicketMs: 120, baseCells: 14, cellsPerBall: 3,
+    easing: "cubic-bezier(.12, .8, .22, 1.04)" },
   chartWindows: [{ label: "전체", size: null }, { label: "최근 100회", size: 100 }, { label: "최근 50회", size: 50 }],
   ballGroups: [10, 20, 30, 40, 45],             // upper bound of each official colour band
   balance: { sumPercentiles: [0.1, 0.9], oddRange: [2, 4], lowRange: [2, 4], maxRun: 2, maxTries: 400 },
@@ -401,28 +403,29 @@ class Backtester {
 const groupIndex = (n) => CONFIG.ballGroups.findIndex((max) => n <= max) + 1;
 const ball = (n, size = "") => el("span", { class: `ball ${size}`.trim(), style: `--c: var(--ball-${groupIndex(n)})`, text: String(n) });
 
-/* ───────── Rolling-ball animation ───────── */
-class BallRoller {
+/* ───────── Slot-reel animation: numbers scroll vertically and land on the result ───────── */
+class BallReel {
   static get reduced() { return window.matchMedia("(prefers-reduced-motion: reduce)").matches; }
-  static paint(node, n) { node.textContent = String(n); node.style.setProperty("--c", `var(--ball-${groupIndex(n)})`); }
-  /** Spins a ball through random numbers, then settles on `finalNumber`. Resolves when settled. */
-  static roll(node, finalNumber, duration) {
-    if (BallRoller.reduced) { BallRoller.paint(node, finalNumber); return Promise.resolve(); }
-    node.classList.add("rolling");
-    return new Promise((resolve) => {
-      const started = performance.now();
-      const timer = setInterval(() => {
-        if (performance.now() - started < duration) return BallRoller.paint(node, NUMBERS[Math.floor(Math.random() * NUMBERS.length)]);
-        clearInterval(timer);
-        BallRoller.paint(node, finalNumber);
-        node.classList.replace("rolling", "settled");
-        resolve();
-      }, CONFIG.roll.frameMs);
-    });
-  }
-  static durationFor(ticketIndex, ballIndex) {
-    const { baseMs, perBallMs, perTicketMs } = CONFIG.roll;
-    return baseMs + ballIndex * perBallMs + ticketIndex * perTicketMs;
+  static randomNumber() { return NUMBERS[Math.floor(Math.random() * NUMBERS.length)]; }
+  static cell(n) { return el("span", { class: "cell", style: `--c: var(--ball-${groupIndex(n)})`, text: String(n) }); }
+
+  /** Rolls `node` (a .ball) through a strip of random numbers ending on `finalNumber`. Resolves when it lands. */
+  static spin(node, finalNumber, ticketIndex, ballIndex) {
+    if (BallReel.reduced) return Promise.resolve();
+    const { baseMs, perBallMs, perTicketMs, baseCells, cellsPerBall, easing } = CONFIG.roll;
+    const count = baseCells + ballIndex * cellsPerBall;
+    const numbers = [...Array.from({ length: count }, BallReel.randomNumber), finalNumber];
+    const strip = el("span", { class: "strip" }, numbers.map(BallReel.cell));
+    node.classList.add("reel");
+    node.replaceChildren(strip);
+    const travel = `translateY(-${(count / numbers.length) * 100}%)`;
+    const duration = baseMs + ballIndex * perBallMs + ticketIndex * perTicketMs;
+    return strip.animate([{ transform: "translateY(0)" }, { transform: travel }], { duration, easing, fill: "forwards" })
+      .finished.then(() => {
+        node.classList.remove("reel");
+        node.replaceChildren(String(finalNumber));
+        node.classList.add("settled");
+      });
   }
 }
 
@@ -482,7 +485,7 @@ class App {
       const why = el("p", { class: "why pending", text: `${s.name} · ${s.explain(this.history, t)}` });
       const balls = t.map((n, j) => {
         const node = ball(n);
-        rolls.push(BallRoller.roll(node, n, BallRoller.durationFor(i, j)));
+        rolls.push(BallReel.spin(node, n, i, j));
         return node;
       });
       Promise.all(rolls.slice(-t.length)).then(() => why.classList.remove("pending"));
