@@ -36,3 +36,12 @@ python3 scripts/build.py --update
 로또는 매 회차 독립 시행입니다. 어떤 알고리즘도 당첨 확률을 바꾸지 못해요. 재미로만 즐겨주세요.
 
 데이터 출처: [smok95/lotto](https://github.com/smok95/lotto)
+
+## 광고 설정
+
+`src/template.html`의 `CONFIG.ads`에 승인받은 값을 넣고 다시 빌드하면 광고가 켜집니다. 값이 비어 있으면 광고 자리는 보이지 않아요.
+
+- 카카오 애드핏: `provider: "adfit"`, 각 슬롯의 `adfitMobile`(320×100)·`adfitDesktop`(728×90)에 `DAN-…` 단위 ID
+- 구글 애드센스: `provider: "adsense"`, `adsenseClient`에 `ca-pub-…`, 각 슬롯의 `adsenseSlot`에 슬롯 ID
+
+페이지 주소 끝에 `#ad-preview`를 붙이면 광고 자리 위치를 미리 볼 수 있어요.

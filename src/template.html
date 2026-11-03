@@ -123,6 +123,11 @@ td.num { font-weight: 600; }
 .bar { height: 8px; border-radius: 4px; background: var(--accent); min-width: 2px; }
 .bar.base { background: var(--bar); }
 .note { color: var(--muted); font-size: .88rem; background: var(--bg); border-radius: 12px; padding: 14px 16px; }
+/* Ad slots: invisible until an ad network is configured in CONFIG.ads */
+.ad-slot { display: grid; justify-items: center; gap: 4px; min-width: 0; overflow: hidden; }
+.ad-slot::before { content: "광고"; font-size: .72rem; color: var(--muted); }
+.ad-slot .ad-preview { width: min(100%, var(--ad-w)); height: var(--ad-h); border: 1.5px dashed var(--bar);
+  border-radius: 10px; display: grid; place-items: center; color: var(--muted); font-size: .84rem; }
 footer { color: var(--muted); font-size: .82rem; padding-top: 8px; }
 footer a { color: inherit; }
 .go:disabled { opacity: .55; cursor: progress; }
@@ -165,6 +170,8 @@ footer a { color: inherit; }
     <div class="tickets" id="tickets" aria-live="polite"></div>
   </section>
 
+  <aside class="ad-slot" data-slot="afterGenerator" aria-label="광고" hidden></aside>
+
   <section class="card" aria-labelledby="freq-h">
     <div class="sec-head">
       <h2 id="freq-h">번호별 출현 횟수</h2>
@@ -173,6 +180,8 @@ footer a { color: inherit; }
     <p class="legend"><i></i><span id="legend-text"></span></p>
     <div class="chart-box"><svg id="freq-chart" role="img" aria-label="1부터 45까지 번호별 출현 횟수 막대 그래프"></svg></div>
   </section>
+
+  <aside class="ad-slot" data-slot="beforeBacktest" aria-label="광고" hidden></aside>
 
   <section class="card" aria-labelledby="bt-h">
     <div class="sec-head"><h2 id="bt-h">백테스트</h2><span class="eyebrow" id="bt-label"></span></div>
@@ -194,6 +203,17 @@ const CONFIG = Object.freeze({
   tickets: { min: 1, max: 10, initial: 5 },
   recentWindow: 50,
   chartTicks: 5,
+  /* Fill in after approval. provider: "adfit" | "adsense" | "" (off). Open the page with #ad-preview to see the slots. */
+  ads: {
+    provider: "",
+    adsenseClient: "",                       // "ca-pub-…"
+    previewHash: "#ad-preview",
+    sizes: { mobile: { width: 320, height: 100 }, desktop: { width: 728, height: 90 }, breakpoint: 760 },
+    slots: {
+      afterGenerator: { adfitMobile: "", adfitDesktop: "", adsenseSlot: "" },   // "DAN-…" / adsense slot id
+      beforeBacktest: { adfitMobile: "", adfitDesktop: "", adsenseSlot: "" },
+    },
+  },
   themes: [{ label: "시스템", value: "system" }, { label: "라이트", value: "light" }, { label: "다크", value: "dark" }],
   roll: { baseMs: 900, perBallMs: 150, perTicketMs: 120, baseCells: 14, cellsPerBall: 3,
     easing: "cubic-bezier(.12, .8, .22, 1.04)", blurPx: 1.2, sharpAt: 0.55 },
@@ -592,6 +612,66 @@ class App {
   }
 }
 
+/* ───────── Ads: one renderer per network, chosen by CONFIG.ads.provider ───────── */
+class AdNetwork {
+  static scripts = new Set();
+  static loadScript(src, attrs = {}) {
+    if (AdNetwork.scripts.has(src)) return;
+    AdNetwork.scripts.add(src);
+    document.head.append(el("script", { src, async: "", ...attrs }));
+  }
+  constructor(size) { this.size = size; }
+  render(_container, _slot) { return false; }
+}
+class AdFit extends AdNetwork {
+  static sdk = "https://t1.daumcdn.net/kas/static/ba.min.js";
+  render(container, slot) {
+    const unit = this.size.isMobile ? slot.adfitMobile : slot.adfitDesktop;
+    if (!unit) return false;
+    container.append(el("ins", { class: "kakao_ad_area", style: "display:none", "data-ad-unit": unit,
+      "data-ad-width": String(this.size.width), "data-ad-height": String(this.size.height) }));
+    AdNetwork.loadScript(AdFit.sdk);
+    return true;
+  }
+}
+class AdSense extends AdNetwork {
+  render(container, slot) {
+    const client = CONFIG.ads.adsenseClient;
+    if (!client || !slot.adsenseSlot) return false;
+    AdNetwork.loadScript(`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${client}`, { crossorigin: "anonymous" });
+    container.append(el("ins", { class: "adsbygoogle", style: "display:block", "data-ad-client": client,
+      "data-ad-slot": slot.adsenseSlot, "data-ad-format": "auto", "data-full-width-responsive": "true" }));
+    (window.adsbygoogle = window.adsbygoogle || []).push({});
+    return true;
+  }
+}
+class AdPreview extends AdNetwork {
+  render(container) {
+    const { width, height } = this.size;
+    container.append(el("div", { class: "ad-preview", style: `--ad-w:${width}px; --ad-h:${height}px`, text: `광고 자리 ${width}×${height}` }));
+    return true;
+  }
+}
+class AdManager {
+  static NETWORKS = { adfit: AdFit, adsense: AdSense };
+  static size() {
+    const { mobile, desktop, breakpoint } = CONFIG.ads.sizes;
+    const isMobile = window.innerWidth < breakpoint;
+    return { ...(isMobile ? mobile : desktop), isMobile };
+  }
+  static mount() {
+    const preview = location.hash === CONFIG.ads.previewHash;
+    const Network = preview ? AdPreview : AdManager.NETWORKS[CONFIG.ads.provider];
+    if (!Network) return;
+    const network = new Network(AdManager.size());
+    document.querySelectorAll(".ad-slot").forEach((container) => {
+      const slot = CONFIG.ads.slots[container.dataset.slot] || {};
+      container.hidden = !network.render(container, slot);
+    });
+  }
+}
+
 ThemeStore.restore();
+AdManager.mount();
 new App(new LottoHistory(DRAWS)).mount();
 </script>
