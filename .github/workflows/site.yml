@@ -1,17 +1,28 @@
-name: Weekly draw update
+name: Build and deploy site
 
-# Draws happen Saturday ~20:35 KST. Run Sunday 09:17 KST (00:17 UTC) so the data source has caught up,
-# and allow a manual run from the Actions tab.
+# One workflow owns the site: it pulls new draws, commits the rebuilt files, and deploys to GitHub Pages.
+# Draws happen Saturday ~20:35 KST; the schedule runs Sunday 09:17 KST (00:17 UTC).
 on:
+  push:
+    branches: [main]
   schedule:
     - cron: "17 0 * * 0"
   workflow_dispatch:
 
 permissions:
   contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+env:
+  SITE_FILES: index.html og.png sitemap.xml
 
 jobs:
-  update:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -34,13 +45,30 @@ jobs:
 
       - name: Commit if changed
         run: |
-          if git diff --quiet -- data index.html og.png sitemap.xml; then
-            echo "No new draw."
+          if git diff --quiet -- data $SITE_FILES; then
+            echo "No changes to commit."
             exit 0
           fi
           latest=$(python -c "import json; print(max(d['draw_no'] for d in json.load(open('data/all.json'))))")
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data index.html og.png sitemap.xml
+          git add data $SITE_FILES
           git commit -m "Update draws through #${latest}"
           git push
+
+      - name: Stage site
+        run: mkdir _site && cp $SITE_FILES _site/
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5
