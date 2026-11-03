@@ -42,6 +42,8 @@ p { margin: 0; }
 .eyebrow { font-size: .85rem; font-weight: 600; color: var(--muted); }
 .mono, .num { font-variant-numeric: tabular-nums; }
 header { display: grid; gap: 10px; padding-block: 8px 20px; }
+.topbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.seg.raised { background: var(--rule); }
 .card { background: var(--surface); border-radius: var(--radius); padding: 24px; display: grid; gap: 18px; min-width: 0; }
 .sec-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
 
@@ -135,7 +137,10 @@ footer a { color: inherit; }
 
 <div class="wrap">
   <header>
-    <span class="eyebrow">동행복권 로또 6/45 · <span id="range"></span></span>
+    <div class="topbar">
+      <span class="eyebrow">동행복권 로또 6/45 · <span id="range"></span></span>
+      <div class="seg raised" id="theme-seg" role="group" aria-label="화면 테마"></div>
+    </div>
     <h1>로또 연구소</h1>
     <p class="lede">역대 당첨번호 전체를 분석해 <span id="strat-count"></span>가지 알고리즘으로 번호를 뽑아요. 아래 백테스트에서 각 알고리즘이 과거에 실제로 얼마나 맞혔는지도 확인할 수 있어요.</p>
     <div class="latest">
@@ -189,6 +194,7 @@ const CONFIG = Object.freeze({
   tickets: { min: 1, max: 10, initial: 5 },
   recentWindow: 50,
   chartTicks: 5,
+  themes: [{ label: "시스템", value: "system" }, { label: "라이트", value: "light" }, { label: "다크", value: "dark" }],
   roll: { baseMs: 900, perBallMs: 150, perTicketMs: 120, baseCells: 14, cellsPerBall: 3,
     easing: "cubic-bezier(.12, .8, .22, 1.04)", blurPx: 1.2, sharpAt: 0.55 },
   chartWindows: [{ label: "전체", size: null }, { label: "최근 100회", size: 100 }, { label: "최근 50회", size: 50 }],
@@ -407,6 +413,22 @@ class Backtester {
 const groupIndex = (n) => CONFIG.ballGroups.findIndex((max) => n <= max) + 1;
 const ball = (n, size = "") => el("span", { class: `ball ${size}`.trim(), style: `--c: var(--ball-${groupIndex(n)})`, text: String(n) });
 
+/* ───────── Theme (system / light / dark), remembered per browser ───────── */
+class ThemeStore {
+  static key = "lotto-lab-theme";
+  static get current() { return document.documentElement.dataset.theme || CONFIG.themes[0].value; }
+  static read() { try { return localStorage.getItem(ThemeStore.key); } catch { return null; } }
+  static apply(value) {
+    const root = document.documentElement;
+    value === CONFIG.themes[0].value ? delete root.dataset.theme : (root.dataset.theme = value);
+    try { localStorage.setItem(ThemeStore.key, value); } catch { /* storage blocked: theme still applies for this visit */ }
+  }
+  static restore() {
+    const saved = ThemeStore.read();
+    if (CONFIG.themes.some((t) => t.value === saved)) ThemeStore.apply(saved);
+  }
+}
+
 /* ───────── Slot-reel animation: numbers scroll vertically and land on the result ───────── */
 class BallReel {
   static get reduced() { return window.matchMedia("(prefers-reduced-motion: reduce)").matches; }
@@ -451,6 +473,7 @@ class App {
     this.renderStrategies();
     this.bindControls();
     this.renderWindowSeg();
+    this.renderThemeSeg();
     this.renderChart();
     this.generate();
     requestAnimationFrame(() => this.renderBacktest());
@@ -508,12 +531,21 @@ class App {
     $("go").disabled = true;
     Promise.all(rolls).then(() => ($("go").disabled = false));
   }
-  renderWindowSeg() {
-    $("window-seg").replaceChildren(...CONFIG.chartWindows.map((w, i) => {
-      const b = el("button", { type: "button", id: `win-${i}`, "aria-pressed": String(w.size === this.chartWindow), text: w.label });
-      b.addEventListener("click", () => { this.chartWindow = w.size; this.renderWindowSeg(); this.renderChart(); });
+  /** Renders a segmented control; `onSelect` runs with the chosen option, then the control re-renders. */
+  static renderSeg(containerId, options, isActive, onSelect) {
+    const render = () => $(containerId).replaceChildren(...options.map((o, i) => {
+      const b = el("button", { type: "button", id: `${containerId}-${i}`, "aria-pressed": String(isActive(o)), text: o.label });
+      b.addEventListener("click", () => { onSelect(o); render(); });
       return b;
     }));
+    render();
+  }
+  renderWindowSeg() {
+    App.renderSeg("window-seg", CONFIG.chartWindows, (w) => w.size === this.chartWindow,
+      (w) => { this.chartWindow = w.size; this.renderChart(); });
+  }
+  renderThemeSeg() {
+    App.renderSeg("theme-seg", CONFIG.themes, (t) => t.value === ThemeStore.current, (t) => ThemeStore.apply(t.value));
   }
   renderChart() {
     const f = this.history.frequency(this.chartWindow);
@@ -560,5 +592,6 @@ class App {
   }
 }
 
+ThemeStore.restore();
 new App(new LottoHistory(DRAWS)).mount();
 </script>
