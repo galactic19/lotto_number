@@ -238,3 +238,13 @@ h3.sub { font-size: 1rem; font-weight: 700; margin: 0; }
   font-size: .9rem; font-weight: 600; text-align: center; opacity: 0; pointer-events: none; z-index: 20;
   transition: opacity .2s, transform .2s; }
 .toast.on { opacity: 1; transform: translate(-50%, 0); }
+
+/* Pattern page */
+.pattern-table td.up { color: var(--accent); }
+.meter { position: relative; height: 8px; border-radius: 4px; background: var(--bg); min-width: 120px; }
+.meter::before { content: ""; position: absolute; inset: 0 auto 0 0; width: var(--v); border-radius: 4px; background: var(--bar); }
+.pattern-table tr:has(td.up) .meter::before { background: var(--accent); }
+.meter::after { content: ""; position: absolute; top: -4px; bottom: -4px; left: var(--chance); border-left: 2px dotted var(--ink); }
+.split { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 16px; }
+.rank-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
+.rank-list li { display: flex; align-items: center; gap: 10px; font-variant-numeric: tabular-nums; font-weight: 600; }

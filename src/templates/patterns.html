@@ -1,0 +1,95 @@
+{% extends "layout.html" %}
+{% set pct = "{:.1f}%" %}
+{% set f2 = "{:.2f}" %}
+{% set test_n = r.test_span[1] - r.test_span[0] + 1 %}
+{% set meter_max = r.chance * 1.25 %}
+{% block header %}
+    <h1>로또 패턴 분석</h1>
+    <p class="lede">지나고 나서 보면 당첨번호에 규칙이 있는 것 같아요. 1회부터 {{ r.draws }}회까지의 기록에서 패턴 {{ r.rules | length }}가지를 찾고, 그 패턴이 <strong>보지 않은 이후 회차에서도 통하는지</strong> 확인했어요. 매주 새 회차가 나오면 다시 계산해요.</p>
+{% endblock %}
+
+{% block content %}
+  <section class="card" aria-labelledby="sum-h">
+    <h2 id="sum-h">한눈에 보기</h2>
+    <div class="stats">
+      {{ ui.stat("검증한 패턴", (r.rules | length) ~ "가지") }}
+      {{ ui.stat("이후 무작위보다 확실히 나았던 패턴", r.rules_beating_chance ~ "가지") }}
+      {{ ui.stat("과거 1위 패턴의 이후 성적", f2.format(r.best.test) ~ "개", accent=true) }}
+      {{ ui.stat("무작위로 찍었을 때", f2.format(r.chance) ~ "개") }}
+    </div>
+    <p class="lede">성적은 회차마다 6개를 골랐을 때 평균 몇 개를 맞혔는지예요. 과거({{ r.train_span[0] }}~{{ r.train_span[1] }}회)에서 가장 잘 맞은 '{{ r.best.name }}'은 그 구간에서 {{ f2.format(r.best.train) }}개를 맞혔지만, 이후 {{ test_n }}회({{ r.test_span[0] }}~{{ r.test_span[1] }}회)에서는 {{ f2.format(r.best.test) }}개였어요.</p>
+  </section>
+
+  <section class="card" aria-labelledby="rules-h">
+    <div class="sec-head"><h2 id="rules-h">패턴별 과거 성적과 이후 성적</h2><span class="eyebrow">과거 성적 순</span></div>
+    <div class="table-box">
+      <table class="pattern-table">
+        <thead><tr><th>패턴</th><th>종류</th><th class="num">과거</th><th class="num">이후</th><th>이후 성적 (점선 = 무작위)</th></tr></thead>
+        <tbody>
+          {%- for x in r.rules %}
+          <tr><td>{{ x.name }}</td><td>{{ x.family }}</td><td class="num">{{ f2.format(x.train) }}</td>
+            <td class="num{% if x.test > r.chance %} up{% else %} down{% endif %}">{{ f2.format(x.test) }}</td>
+            <td><div class="meter" style="--v: {{ (x.test / meter_max * 100) | round(1) }}%; --chance: {{ (r.chance / meter_max * 100) | round(1) }}%"></div></td></tr>
+          {%- endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p class="note">무작위로 골라도 {{ test_n }}회 동안의 성적은 운에 따라 {{ f2.format(r.chance - r.noise) }}~{{ f2.format(r.chance + r.noise) }}개 사이를 오가요(95% 범위). 파란색 패턴도 이 범위 안이라 실력이 아니라 운으로 볼 수 있어요. 과거 성적과 이후 성적의 상관계수는 {{ "{:+.2f}".format(r.correlation) }}예요. 0에 가까울수록 '과거에 잘 맞던 패턴'이 앞으로를 알려주지 못한다는 뜻이에요. 비교로, 아무 의미 없이 무작위로 고르는 가짜 패턴 {{ r.rules | length }}개를 같은 과거 구간에 채점하면 그중 1등이 {{ f2.format(r.fake_best) }}개를 맞혀요. 진짜 패턴 1등({{ f2.format(r.best.train) }}개)과 비슷해요. 여러 개를 시험하면 우연만으로도 그 정도 '패턴'은 생겨요.</p>
+  </section>
+
+  {{ ui.ad_slot("afterRules") }}
+
+  <section class="card" aria-labelledby="freq-h">
+    <h2 id="freq-h">잘 나오는 번호가 있을까</h2>
+    <div class="split">
+      <div>
+        <h3 class="sub">가장 많이 나온 번호</h3>
+        <ul class="rank-list">{% for n, c in r.counts[:5] %}<li>{{ ui.ball(n, "sm") }}<span>{{ c }}회</span></li>{% endfor %}</ul>
+      </div>
+      <div>
+        <h3 class="sub">가장 적게 나온 번호</h3>
+        <ul class="rank-list">{% for n, c in r.counts[-5:] | reverse %}<li>{{ ui.ball(n, "sm") }}<span>{{ c }}회</span></li>{% endfor %}</ul>
+      </div>
+    </div>
+    <p class="lede">번호 하나는 평균 {{ "{:.0f}".format(r.expected_count) }}회 나와야 해요. 무작위 추첨을 컴퓨터로 2,000번 다시 해 보면, 지금만큼 들쭉날쭉한 결과가 {{ "{:.0f}".format(r.chi_p * 100) }}%의 경우에 저절로 생겨요.
+      {%- if r.frequency_is_random %} 그래서 특별히 잘 나오는 번호는 없다고 봐요.{% else %} 우연이라 보기엔 큰 차이라서 계속 지켜볼 만해요.{% endif %}</p>
+  </section>
+
+  <section class="card" aria-labelledby="repeat-h">
+    <h2 id="repeat-h">지난주 번호가 이번 주에 또 나올까</h2>
+    <div class="stats">
+      {{ ui.stat("평균 재출현", f2.format(r.repeat_mean) ~ "개") }}
+      {{ ui.stat("무작위 기대값", f2.format(r.chance) ~ "개") }}
+    </div>
+    <div class="table-box">
+      <table>
+        <thead><tr><th>직전 회차와 겹친 번호</th><th class="num">회차 수</th></tr></thead>
+        <tbody>{% for k, c in r.repeat_hist %}<tr><td>{{ k }}개</td><td class="num">{{ c }}회</td></tr>{% endfor %}</tbody>
+      </table>
+    </div>
+    <p class="lede">직전 회차 번호는 평균 {{ f2.format(r.repeat_mean) }}개가 다시 나왔어요. 무작위일 때 기대값 {{ f2.format(r.chance) }}개와 거의 같아서, 지난 결과가 다음 결과에 영향을 준다는 근거는 없어요.</p>
+  </section>
+
+  <section class="card" aria-labelledby="shape-h">
+    <h2 id="shape-h">홀짝 3:3이 많이 나오는 이유</h2>
+    <div class="table-box">
+      <table>
+        <thead><tr><th>모양</th><th class="num">실제 비율</th><th class="num">조합으로 계산한 비율</th></tr></thead>
+        <tbody>
+          {%- for s in r.odd_shares + [r.consecutive] %}
+          <tr><td>{{ s.label }}</td><td class="num">{{ pct.format(s.actual * 100) }}</td><td class="num">{{ pct.format(s.expected * 100) }}</td></tr>
+          {%- endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p class="lede">홀짝 3:3이나 연속번호처럼 자주 보이는 모양은 경향이 아니라, 원래 그 모양을 만드는 조합이 많아서 자주 나와요. 실제 비율이 조합으로 계산한 비율과 거의 같아요. 그래서 이런 모양으로 번호를 골라도 당첨 확률은 그대로예요.</p>
+  </section>
+
+  {{ ui.ad_slot("afterShapes") }}
+
+  <section class="card prose" aria-labelledby="why-h">
+    <h2 id="why-h">지나고 나면 패턴이 보이는 이유</h2>
+    <p>{{ r.draws }}회 × 6개나 되는 숫자 안에서는 어떤 모양이든 찾을 수 있어요. 구름에서 얼굴이 보이는 것과 같아요. 진짜 패턴인지 가르는 기준은 하나예요. <strong>그 패턴을 찾을 때 쓰지 않은 미래 회차에서도 통하는가.</strong> 이 페이지의 패턴은 모두 그 시험을 통과하지 못했어요.</p>
+    <p>그래서 번호를 고르는 방법은 재미로 고르면 충분해요. <a class="link" href="{{ root }}">번호 생성기</a>의 알고리즘들도 같은 방식으로 검증한 백테스트 결과를 함께 보여줘요.</p>
+  </section>
+{% endblock %}

@@ -27,6 +27,8 @@ from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
 
+from analysis import PatternAnalysis
+
 ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "src"
 TEMPLATES = SRC / "templates"
@@ -75,6 +77,7 @@ SITE = Site()
 NAV = [
     NavItem("home", "번호 생성", ""),
     NavItem("draws", "회차별 당첨번호", "draws/"),
+    NavItem("patterns", "패턴 분석", "patterns/"),
     NavItem("calculator", "실수령액 계산기", "calculator/"),
     NavItem("check", "내 번호 확인", "check/"),
     NavItem("pension", "연금복권720+", "pension/"),
@@ -354,7 +357,7 @@ class SitePages:
         self.latest_date = summary.latest.date
 
     def all(self) -> list[Page]:
-        return [self.home(), *self.year_pages(), *self.draw_pages(), self.calculator(), self.check(), self.pension()]
+        return [self.home(), *self.year_pages(), *self.draw_pages(), self.patterns(), self.calculator(), self.check(), self.pension()]
 
     def home(self) -> Page:
         return Page("", "home.html", "home", SITE.title("로또 번호 생성기 · 역대 당첨번호 분석 알고리즘"),
@@ -402,6 +405,16 @@ class SitePages:
                  "prev": self.draws[i - 1] if i else None, "next": self.draws[i + 1] if i + 1 < len(self.draws) else None},
                 "WebPage", d.date))
         return pages
+
+    def patterns(self) -> Page:
+        report = PatternAnalysis([d.numbers for d in self.draws], MAX_NUMBER, PICK_COUNT).run()
+        best = report.best
+        return Page(NAV_PATH["patterns"], "patterns.html", "patterns",
+                    SITE.title(f"로또 패턴 분석 · {report.draws:,}회 당첨번호에 규칙이 있을까"),
+                    f"로또 1~{report.draws}회 당첨번호에서 핫넘버, 콜드넘버, 출현 간격, 흐름 등 {len(report.rules)}가지 패턴을 찾아 "
+                    f"이후 {report.test_span[1] - report.test_span[0] + 1}회로 검증했어요. 과거 1위 '{best.name}'은 이후 "
+                    f"회차당 {best.test:.2f}개를 맞혀 무작위({report.chance:.2f}개)와 차이가 없었어요.",
+                    ["common.js"], {"r": report}, "WebPage", self.latest_date)
 
     def calculator(self) -> Page:
         latest = self.summary.latest
