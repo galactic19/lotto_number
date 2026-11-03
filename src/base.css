@@ -25,7 +25,8 @@
 
 * { box-sizing: border-box; }
 body { background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 15px; line-height: 1.6;
-  letter-spacing: var(--tracking); -webkit-font-smoothing: antialiased; }
+  letter-spacing: var(--tracking); -webkit-font-smoothing: antialiased;
+  word-break: keep-all; overflow-wrap: break-word; }  /* Korean wraps between words, never mid-word */
 button, input, output, table { font: inherit; letter-spacing: inherit; }
 .wrap { max-width: 880px; margin: 0 auto; padding-block: 40px 72px;
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));

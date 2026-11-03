@@ -111,22 +111,22 @@ class PatternAnalysis:
         total = comb(self.n, self.k)
         odd_total = (self.n + 1) // 2
         hist = Counter(sum(x % 2 for x in d) for d in self.draws)
-        odd = [Share(f"홀수 {j}개 : 짝수 {self.k - j}개", hist[j] / self.count,
+        odd = [Share(f"홀수 {j}개, 짝수 {self.k - j}개", hist[j] / self.count,
                      comb(odd_total, j) * comb(self.n - odd_total, self.k - j) / total) for j in range(self.k + 1)]
         has_run = sum(any(b == a + 1 for a, b in zip(d, d[1:])) for d in self.draws) / self.count
-        return odd, Share("연속번호 포함", has_run, 1 - comb(self.n - self.k + 1, self.k) / total)
+        return odd, Share("연속된 번호가 있는 경우 (예: 12, 13)", has_run, 1 - comb(self.n - self.k + 1, self.k) / total)
 
     # ───────── rule mining ─────────
     def rules(self) -> dict[str, tuple[str, Callable[[int, dict], np.ndarray]]]:
         r: dict[str, tuple[str, Callable]] = {}
         for w in CONFIG["windows"]:
-            r[f"최근 {w}회 핫넘버"] = ("핫넘버", lambda i, s, w=w: self.top(s["prefix"][i] - s["prefix"][max(0, i - w)]))
-            r[f"최근 {w}회 콜드넘버"] = ("콜드넘버", lambda i, s, w=w: self.top(-(s["prefix"][i] - s["prefix"][max(0, i - w)])))
-        r["가장 오래 쉰 번호"] = ("출현 간격", lambda i, s: self.top(i - s["last"]))
-        r["가장 최근 나온 번호"] = ("출현 간격", lambda i, s: self.top(-(i - s["last"])))
-        r["직전 회차 그대로"] = ("흐름", lambda i, s: np.array(self.draws[i - 1]))
+            r[f"최근 {w}회 동안 자주 나온 번호"] = ("핫넘버", lambda i, s, w=w: self.top(s["prefix"][i] - s["prefix"][max(0, i - w)]))
+            r[f"최근 {w}회 동안 안 나온 번호"] = ("콜드넘버", lambda i, s, w=w: self.top(-(s["prefix"][i] - s["prefix"][max(0, i - w)])))
+        r["가장 오랫동안 안 나온 번호"] = ("출현 간격", lambda i, s: self.top(i - s["last"]))
+        r["가장 최근에 나온 번호"] = ("출현 간격", lambda i, s: self.top(-(i - s["last"])))
+        r["지난주 번호 그대로"] = ("흐름", lambda i, s: np.array(self.draws[i - 1]))
         for lag in CONFIG["lags"]:
-            r[f"{lag}회 전 번호 뒤따르기"] = ("흐름", lambda i, s, lag=lag: self.top(s["follow"][lag][self.draws[i - lag]].sum(axis=0)))
+            r[f"{lag}주 전 번호 다음에 잘 나온 번호"] = ("흐름", lambda i, s, lag=lag: self.top(s["follow"][lag][self.draws[i - lag]].sum(axis=0)))
         return r
 
     def mine(self) -> tuple[list[RuleResult], float, float, tuple[int, int], tuple[int, int]]:

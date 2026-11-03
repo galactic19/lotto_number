@@ -410,10 +410,10 @@ class SitePages:
         report = PatternAnalysis([d.numbers for d in self.draws], MAX_NUMBER, PICK_COUNT).run()
         best = report.best
         return Page(NAV_PATH["patterns"], "patterns.html", "patterns",
-                    SITE.title(f"로또 패턴 분석 · {report.draws:,}회 당첨번호에 규칙이 있을까"),
-                    f"로또 1~{report.draws}회 당첨번호에서 핫넘버, 콜드넘버, 출현 간격, 흐름 등 {len(report.rules)}가지 패턴을 찾아 "
-                    f"이후 {report.test_span[1] - report.test_span[0] + 1}회로 검증했어요. 과거 1위 '{best.name}'은 이후 "
-                    f"회차당 {best.test:.2f}개를 맞혀 무작위({report.chance:.2f}개)와 차이가 없었어요.",
+                    SITE.title("로또 패턴 분석 · 당첨번호에 규칙이 있을까?"),
+                    f"자주 나오는 번호, 오래 안 나온 번호, 지난주 번호 등 로또 규칙 {len(report.rules)}가지를 1~{report.draws}회 "
+                    f"실제 기록으로 시험했어요. 가장 잘 맞던 규칙도 최근 회차에서는 평균 {best.test:.2f}개를 맞혀, "
+                    f"아무렇게나 고른 것({report.chance:.2f}개)과 차이가 없었어요.",
                     ["common.js"], {"r": report}, "WebPage", self.latest_date)
 
     def calculator(self) -> Page:
