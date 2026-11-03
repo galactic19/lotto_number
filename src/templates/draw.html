@@ -1,0 +1,67 @@
+{% extends "layout.html" %}
+{% block header %}
+    <nav class="crumbs" aria-label="현재 위치"><a href="{{ root }}">홈</a><span>›</span><a href="{{ root }}draws/">당첨번호</a><span>›</span><span>{{ d.no }}회</span></nav>
+    <h1>로또 {{ d.no }}회 당첨번호</h1>
+    <p class="lede">{{ date_ko(d.date) }} 추첨 결과예요.
+      {%- if first.winners %} 1등은 {{ first.winners }}명, 1인당 {{ ui.won(first.prize) }}이에요.{% else %} 1등 당첨자가 없어 당첨금이 다음 회차로 이월됐어요.{% endif %}</p>
+    <div class="latest">
+      <span class="eyebrow">{{ d.no }}회 · {{ d.date }}</span>
+      {{ ui.draw_balls(d) }}
+    </div>
+{% endblock %}
+
+{% block content %}
+  <section class="card" aria-labelledby="prize-h">
+    <h2 id="prize-h">등수별 당첨금</h2>
+    <div class="table-box">
+      <table>
+        <thead><tr><th>등수</th><th>조건</th><th class="num">당첨자 수</th><th class="num">1인당 당첨금</th></tr></thead>
+        <tbody>
+          {%- for r in ranks %}
+          <tr><td>{{ r.name }}</td><td>{{ r.rule }}</td><td class="num">{{ "{:,}".format(r.winners) }}명</td><td class="num">{% if r.winners %}{{ ui.won(r.prize) }}{% else %}-{% endif %}</td></tr>
+          {%- endfor %}
+        </tbody>
+      </table>
+    </div>
+    {%- if first.winners %}
+    <div class="stats">
+      {{ ui.stat("1등 1인당 당첨금", ui.won(first.prize)) }}
+      {{ ui.stat("세금", ui.won(first_tax.tax)) }}
+      {{ ui.stat("실수령액", ui.won(first_tax.net), accent=true) }}
+    </div>
+    <p class="lede">세금은 {% for b in rules.tax.brackets %}{{ b.range }} {{ (b.rate * 100) | round | int }}%{% if not loop.last %}, {% endif %}{% endfor %}로 계산했어요. 다른 금액은 <a class="link" href="{{ root }}calculator/">실수령액 계산기</a>에서 확인하세요.
+      {%- if d.auto is not none %} 1등 {{ first.winners }}명 중 자동 {{ d.auto }}명, 수동 {{ d.manual }}명이에요.{% endif %}</p>
+    {%- endif %}
+  </section>
+
+  {{ ui.ad_slot("afterPrize") }}
+
+  <section class="card" aria-labelledby="pattern-h">
+    <h2 id="pattern-h">번호 분석</h2>
+    <div class="stats">
+      {{ ui.stat("번호 합계", stats.total) }}
+      {{ ui.stat("홀수 : 짝수", stats.odd ~ " : " ~ stats.even) }}
+      {{ ui.stat("낮은 번호 : 높은 번호", stats.low ~ " : " ~ stats.high) }}
+      {{ ui.stat("연속 번호", stats.run_text) }}
+      {%- if d.sales %}{{ ui.stat("총 판매금액", won_eok(d.sales)) }}{% endif %}
+    </div>
+    <div class="table-box">
+      <table>
+        <thead><tr><th>번호</th><th class="num">{{ d.no }}회까지 누적 출현</th><th class="num">직전 출현 이후</th></tr></thead>
+        <tbody>
+          {%- for row in stats.numbers %}
+          <tr><td>{{ ui.ball(row.n, "sm") }}</td><td class="num">{{ row.count }}회</td><td class="num">{% if row.gap is none %}첫 출현{% else %}{{ row.gap }}회 만{% endif %}</td></tr>
+          {%- endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p class="lede">낮은 번호는 1~{{ stats.half }}, 높은 번호는 {{ stats.half + 1 }}~{{ stats.max }} 기준이에요.</p>
+  </section>
+
+  <nav class="pager" aria-label="다른 회차">
+    {%- if prev %}<a href="{{ root }}{{ draw_path(prev) }}">← {{ prev.no }}회</a>{% else %}<span></span>{% endif %}
+    {%- if next %}<a href="{{ root }}{{ draw_path(next) }}">{{ next.no }}회 →</a>{% endif %}
+  </nav>
+
+  {{ ui.ad_slot("afterDraw") }}
+{% endblock %}

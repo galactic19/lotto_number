@@ -1,0 +1,32 @@
+{
+  "tax": {
+    "ticketPrice": 1000,
+    "taxFreeLimit": 2000000,
+    "brackets": [
+      { "upTo": 300000000, "rate": 0.22, "range": "3억 원 이하", "detail": "소득세 20% + 지방소득세 2%" },
+      { "upTo": null, "rate": 0.33, "range": "3억 원 초과분", "detail": "소득세 30% + 지방소득세 3%" }
+    ]
+  },
+  "ranks": [
+    { "name": "1등", "match": 6, "bonus": false, "rule": "6개 번호 모두 일치" },
+    { "name": "2등", "match": 5, "bonus": true, "rule": "5개 번호 + 보너스 번호 일치" },
+    { "name": "3등", "match": 5, "bonus": false, "rule": "5개 번호 일치" },
+    { "name": "4등", "match": 4, "bonus": false, "rule": "4개 번호 일치" },
+    { "name": "5등", "match": 3, "bonus": false, "rule": "3개 번호 일치" }
+  ],
+  "pension": {
+    "groups": 5,
+    "digits": 6,
+    "ticketPrice": 1000,
+    "ranks": [
+      { "name": "1등", "rule": "조와 6자리 모두 일치", "monthly": 7000000, "months": 240 },
+      { "name": "2등", "rule": "6자리 일치 (조는 다름)", "monthly": 1000000, "months": 120 },
+      { "name": "3등", "rule": "끝 5자리 일치", "lump": 1000000 },
+      { "name": "4등", "rule": "끝 4자리 일치", "lump": 100000 },
+      { "name": "5등", "rule": "끝 3자리 일치", "lump": 50000 },
+      { "name": "6등", "rule": "끝 2자리 일치", "lump": 5000 },
+      { "name": "7등", "rule": "끝 1자리 일치", "lump": 1000 },
+      { "name": "보너스", "rule": "별도 추첨한 6자리 일치 (모든 조)", "monthly": 1000000, "months": 120 }
+    ]
+  }
+}

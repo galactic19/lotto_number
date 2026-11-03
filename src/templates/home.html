@@ -1,0 +1,69 @@
+{% extends "layout.html" %}
+{% block header %}
+    <h1>로또 연구소</h1>
+    <p class="lede">역대 당첨번호 {{ "{:,}".format(summary.total) }}회 전체를 분석해 <span id="strat-count"></span>가지 알고리즘으로 번호를 뽑아요. 아래 백테스트에서 각 알고리즘이 과거에 실제로 얼마나 맞혔는지도 확인할 수 있어요.</p>
+    <div class="latest">
+      {% if inline %}<span class="eyebrow">{% else %}<a class="eyebrow brand" href="{{ root }}{{ draw_path(summary.latest) }}">{% endif %}최신 {{ summary.latest.no }}회 · {{ summary.latest.date }}{% if inline %}</span>{% else %}</a>{% endif %}
+      {{ ui.draw_balls(summary.latest) }}
+    </div>
+{% endblock %}
+
+{% block content %}
+  <section class="card" aria-labelledby="gen-h">
+    <div class="sec-head"><h2 id="gen-h">번호 생성</h2><span class="eyebrow">알고리즘을 하나 이상 고르세요</span></div>
+    <div class="strategies" id="strategies"></div>
+    <div class="controls">
+      <span>게임 수</span>
+      <div class="stepper">
+        <button type="button" id="dec" aria-label="게임 수 줄이기">−</button>
+        <output id="count" class="mono"></output>
+        <button type="button" id="inc" aria-label="게임 수 늘리기">+</button>
+      </div>
+      <label><input type="checkbox" id="balance" checked> 균형 필터 (합계·홀짝·고저·연번)</label>
+      <button type="button" class="go" id="go">번호 뽑기</button>
+    </div>
+    <div class="tickets" id="tickets" aria-live="polite"></div>
+  </section>
+
+  {{ ui.ad_slot("afterGenerator") }}
+
+  <section class="card" aria-labelledby="freq-h">
+    <div class="sec-head">
+      <h2 id="freq-h">번호별 출현 횟수</h2>
+      <div class="seg" id="window-seg"></div>
+    </div>
+    <p class="legend"><i></i><span id="legend-text"></span></p>
+    <div class="chart-box"><svg id="freq-chart" role="img" aria-label="1부터 45까지 번호별 출현 횟수 막대 그래프"></svg></div>
+  </section>
+
+  {{ ui.ad_slot("beforeBacktest") }}
+
+  <section class="card" aria-labelledby="bt-h">
+    <div class="sec-head"><h2 id="bt-h">백테스트</h2><span class="eyebrow" id="bt-label"></span></div>
+    <p class="lede" id="bt-desc"></p>
+    <div class="table-box"><table id="bt-table"></table></div>
+    <p class="note">로또는 매 회차 독립 시행이라 어떤 알고리즘도 당첨 확률을 바꾸지 못해요. 1등 확률은 모든 조합이 똑같이 1/<span id="odds" class="mono"></span>이에요. 이 페이지는 데이터를 가지고 노는 실험실이에요. 재미로만 즐겨주세요.</p>
+  </section>
+
+  <section class="card prose" aria-labelledby="about-h">
+    <h2 id="about-h">로또 연구소는 이렇게 번호를 골라요</h2>
+    <p>{{ summary.sentence }}</p>
+    <h3>알고리즘</h3>
+    <dl>
+      <dt>핫넘버</dt><dd>최근 회차에서 자주 나온 번호에 더 높은 확률을 줘요. 흐름을 타는 번호를 따라가는 방식이에요.</dd>
+      <dt>콜드넘버</dt><dd>마지막으로 나온 뒤 오래 쉬고 있는 번호일수록 확률을 높여요. 이른바 '나올 때가 된 번호'예요.</dd>
+      <dt>동반출현</dt><dd>1회부터 지금까지 같은 회차에 함께 나온 번호 쌍을 세고, 그 짝을 따라 조합을 이어 붙여요.</dd>
+      <dt>흐름 추적</dt><dd>직전 회차 번호 다음에 어떤 번호가 이어서 나왔는지 세는 마르코프 전이 방식이에요.</dd>
+      <dt>균형 랜덤</dt><dd>완전 무작위로 뽑은 뒤 번호 합계, 홀짝 비율, 낮은 번호와 높은 번호 비율, 연속 번호 개수가 역대 당첨번호의 일반적인 범위에 드는 조합만 남겨요.</dd>
+      <dt>순수 랜덤</dt><dd>데이터를 전혀 쓰지 않는 대조군이에요. 다른 알고리즘이 정말 나은지 비교하는 기준이 돼요.</dd>
+    </dl>
+    <h3>데이터와 업데이트</h3>
+    <p>동행복권이 공개한 1회부터의 전체 당첨번호를 사용해요. 매주 토요일 추첨이 끝나면 일요일 오전에 자동으로 새 회차를 반영해요.{% if not inline %} 회차별 결과는 <a class="link" href="{{ root }}draws/">당첨번호 모음</a>에서, 내 번호의 역대 성적은 <a class="link" href="{{ root }}check/">내 번호 확인</a>에서 볼 수 있어요.{% endif %}</p>
+  </section>
+
+  {{ ui.ad_slot("afterAbout") }}
+{% endblock %}
+
+{% block data %}
+{{ ui.data_json("draws-data", draws_payload) }}
+{% endblock %}

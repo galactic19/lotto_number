@@ -1,0 +1,27 @@
+{% extends "layout.html" %}
+{% block header %}
+    <h1>로또 회차별 당첨번호</h1>
+    <p class="lede">1회부터 {{ summary.latest.no }}회까지 전체 당첨번호와 1등 당첨금이에요. 회차를 누르면 등수별 당첨금과 번호 분석을 볼 수 있어요.</p>
+{% endblock %}
+
+{% block content %}
+  {%- for year in years %}
+  <section class="card" aria-labelledby="y{{ year.year }}">
+    <div class="sec-head"><h2 id="y{{ year.year }}">{{ year.year }}년</h2><span class="eyebrow">{{ year.draws | length }}회차</span></div>
+    <div class="table-box">
+      <table>
+        <thead><tr><th>회차</th><th>날짜</th><th>당첨번호</th><th class="num">1등 당첨금</th><th class="num">1등</th></tr></thead>
+        <tbody>
+          {%- for d in year.draws %}
+          <tr><td><a class="link" href="{{ root }}{{ draw_path(d) }}">{{ d.no }}회</a></td><td>{{ d.date }}</td><td>{{ ui.draw_balls(d, "sm") }}</td>
+            <td class="num">{% if d.first.winners %}{{ ui.won(d.first.prize) }}{% else %}이월{% endif %}</td><td class="num">{{ d.first.winners }}명</td></tr>
+          {%- endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+  {%- if loop.first %}
+  {{ ui.ad_slot("afterLatestYear") }}
+  {%- endif %}
+  {%- endfor %}
+{% endblock %}

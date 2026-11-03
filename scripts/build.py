@@ -1,81 +1,176 @@
-"""Build the site from src/template.html and the draw history in data/all.json.
+"""Build the static site from src/ and the draw history in data/all.json.
 
 Outputs:
-    index.html            full HTML document for GitHub Pages (SEO meta, JSON-LD, static summary)
-    og.png                1200x630 social preview with the latest draw
-    sitemap.xml           single-URL sitemap, lastmod = latest draw date
-    .cache/artifact.html  page fragment for the claude.ai artifact (its host adds the document shell)
+    _site/                 everything GitHub Pages serves (pages, assets, og.png, sitemap.xml)
+    .cache/artifact.html   the home page as one self-contained fragment for the claude.ai artifact
 
 Usage:
     python3 scripts/build.py            # build from the local data file
     python3 scripts/build.py --update   # download the latest history first
+    python3 -m http.server -d _site     # preview at http://localhost:8000/
 """
 from __future__ import annotations
 
 import argparse
 import base64
-import html
+import hashlib
 import io
 import json
 import re
+import shutil
 import string
 import urllib.request
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from itertools import groupby
 from pathlib import Path
 
+from jinja2 import Environment, FileSystemLoader, StrictUndefined
+
 ROOT = Path(__file__).resolve().parent.parent
+SRC = ROOT / "src"
+TEMPLATES = SRC / "templates"
+JS_DIR = SRC / "js"
+BASE_CSS = SRC / "base.css"
+RULES_FILE = SRC / "rules.json"
 DATA_URL = "https://smok95.github.io/lotto/results/all.json"
 DATA_FILE = ROOT / "data" / "all.json"
-TEMPLATE_FILE = ROOT / "src" / "template.html"
-CACHE_DIR = ROOT / ".cache"
-NUMBERS_PER_DRAW = 6
+OUT = ROOT / "_site"
+CACHE = ROOT / ".cache"
+ARTIFACT_FILE = CACHE / "artifact.html"
+ASSETS = "assets/"
 
 FONT_FAMILY = "Pretendard"
 FONT_WEIGHT_RANGE = "45 920"
 FONT_URL = "https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/variable/woff2/PretendardVariable.woff2"
-FONT_CACHE = CACHE_DIR / "PretendardVariable.woff2"
+FONT_CACHE = CACHE / "PretendardVariable.woff2"
+FONT_FILE = "pretendard.woff2"
 
 
 @dataclass(frozen=True)
 class Site:
     url: str = "https://galactic19.github.io/lotto_number/"
     name: str = "로또 연구소"
-    title: str = "로또 번호 생성기 · 역대 당첨번호 분석 알고리즘 | 로또 연구소"
     locale: str = "ko_KR"
     lang: str = "ko"
     og_image: str = "og.png"
     og_size: tuple[int, int] = (1200, 630)
 
-    def absolute(self, path: str) -> str:
+    def absolute(self, path: str = "") -> str:
         return self.url + path
+
+    def title(self, text: str) -> str:
+        return f"{text} | {self.name}"
+
+
+@dataclass(frozen=True)
+class NavItem:
+    key: str
+    label: str
+    path: str
 
 
 SITE = Site()
+NAV = [
+    NavItem("home", "번호 생성", ""),
+    NavItem("draws", "회차별 당첨번호", "draws/"),
+    NavItem("calculator", "실수령액 계산기", "calculator/"),
+    NavItem("check", "내 번호 확인", "check/"),
+    NavItem("pension", "연금복권720+", "pension/"),
+]
+NAV_PATH = {item.key: item.path for item in NAV}
 
 
-class Placeholder:
-    DATA = "/*__DATA__*/"
-    FONT = "/*__FONT__*/"
-    HEAD = "<!--__HEAD__-->"
-    SUMMARY = "<!--__SUMMARY__-->"
-    UPDATED = "<!--__UPDATED__-->"
+# ───────── Shared source values (read from src so CSS/JS stay the single source of truth) ─────────
+class SourceTokens:
+    def __init__(self):
+        self.css = BASE_CSS.read_text(encoding="utf-8")
+        self.common_js = (JS_DIR / "common.js").read_text(encoding="utf-8")
+
+    def color(self, name: str) -> str:
+        match = re.search(rf"--{re.escape(name)}:\s*(#[0-9a-fA-F]{{3,8}})", self.css)
+        if not match:
+            raise ValueError(f"CSS token --{name} not found in base.css")
+        return match.group(1)
+
+    def js_number(self, key: str) -> int:
+        return int(re.search(rf"\b{key}:\s*(\d+)", self.common_js).group(1))
+
+    @property
+    def ball_groups(self) -> list[int]:
+        match = re.search(r"ballGroups:\s*\[([\d,\s]+)\]", self.common_js)
+        return [int(x) for x in match.group(1).split(",")]
+
+    def ball_band(self, n: int) -> int:
+        return next(i for i, upper in enumerate(self.ball_groups) if n <= upper) + 1
+
+    def strategy_count(self) -> int:
+        return len(re.findall(r"class \w+ extends Strategy\b", (JS_DIR / "home.js").read_text(encoding="utf-8")))
+
+
+TOKENS = SourceTokens()
+MAX_NUMBER = TOKENS.js_number("maxNumber")
+PICK_COUNT = TOKENS.js_number("pickCount")
+RULES = json.loads(RULES_FILE.read_text(encoding="utf-8"))
+
+
+# ───────── Tax (mirrors Tax.compute in common.js) ─────────
+@dataclass(frozen=True)
+class TaxResult:
+    prize: int
+    tax: int
+    net: int
+
+
+def compute_tax(prize: int, deduct_ticket: bool = True) -> TaxResult:
+    rules = RULES["tax"]
+    if prize <= rules["taxFreeLimit"]:
+        return TaxResult(prize, 0, prize)
+    taxable = max(0, prize - (rules["ticketPrice"] if deduct_ticket else 0))
+    tax, floor = 0, 0
+    for bracket in rules["brackets"]:
+        upper = bracket["upTo"] if bracket["upTo"] is not None else taxable
+        base = max(0, min(taxable, upper) - floor)
+        tax += int(base * bracket["rate"])
+        floor = upper
+    return TaxResult(prize, tax, prize - tax)
 
 
 # ───────── Data ─────────
+@dataclass(frozen=True)
+class Division:
+    prize: int
+    winners: int
+
+
 @dataclass(frozen=True)
 class Draw:
     no: int
     numbers: list[int]
     bonus: int
     date: str
+    divisions: list[Division]
+    sales: int
+    auto: int | None
+    manual: int | None
 
     @classmethod
     def from_raw(cls, raw: dict) -> "Draw":
         numbers = sorted(raw["numbers"])
-        if len(numbers) != NUMBERS_PER_DRAW:
+        if len(numbers) != PICK_COUNT:
             raise ValueError(f"Draw {raw['draw_no']} has {len(numbers)} numbers")
-        return cls(raw["draw_no"], numbers, raw["bonus_no"], raw["date"][:10])
+        divisions = [Division(d.get("prize", 0), d.get("winners", 0)) for d in raw.get("divisions", [])]
+        combo = raw.get("winners_combination") or {}
+        return cls(raw["draw_no"], numbers, raw["bonus_no"], raw["date"][:10], divisions,
+                   raw.get("total_sales_amount") or 0, combo.get("auto"), combo.get("manual"))
+
+    @property
+    def first(self) -> Division:
+        return self.divisions[0] if self.divisions else Division(0, 0)
+
+    def payload(self) -> dict:
+        return {"no": self.no, "numbers": self.numbers, "bonus": self.bonus, "date": self.date,
+                "prizes": [d.prize for d in self.divisions]}
 
 
 def download(url: str, path: Path) -> None:
@@ -97,19 +192,66 @@ class DrawRepository:
 
 
 @dataclass(frozen=True)
+class NumberRow:
+    n: int
+    count: int
+    gap: int | None
+
+
+@dataclass(frozen=True)
+class DrawStats:
+    total: int
+    odd: int
+    even: int
+    low: int
+    high: int
+    run_text: str
+    numbers: list[NumberRow]
+    half: int = (MAX_NUMBER + 1) // 2
+    max: int = MAX_NUMBER
+
+
+def longest_run(numbers: list[int]) -> int:
+    best = run = 1
+    for a, b in zip(numbers, numbers[1:]):
+        run = run + 1 if b == a + 1 else 1
+        best = max(best, run)
+    return best
+
+
+def draw_stats(draws: list[Draw]) -> dict[int, DrawStats]:
+    """Per-draw pattern stats plus each number's running count and gap, computed in one pass."""
+    counts: Counter[int] = Counter()
+    last_seen: dict[int, int] = {}
+    half = (MAX_NUMBER + 1) // 2
+    result = {}
+    for d in draws:
+        rows = []
+        for n in d.numbers:
+            counts[n] += 1
+            rows.append(NumberRow(n, counts[n], d.no - last_seen[n] if n in last_seen else None))
+            last_seen[n] = d.no
+        odd = sum(n % 2 for n in d.numbers)
+        low = sum(n <= half for n in d.numbers)
+        run = longest_run(d.numbers)
+        result[d.no] = DrawStats(sum(d.numbers), odd, PICK_COUNT - odd, low, PICK_COUNT - low,
+                                 f"{run}개 연속" if run > 1 else "없음", rows)
+    return result
+
+
+@dataclass(frozen=True)
 class Summary:
-    """Facts about the history that the static page, meta tags and preview image all share."""
+    """Facts about the history that pages, meta tags and the preview image share."""
     latest: Draw
     total: int
     hot: list[int]
     strategy_count: int
 
     @classmethod
-    def of(cls, draws: list[Draw], template: str) -> "Summary":
+    def of(cls, draws: list[Draw]) -> "Summary":
         counts = Counter(n for d in draws for n in d.numbers)
-        hot = sorted(n for n, _ in counts.most_common(NUMBERS_PER_DRAW))
-        strategy_count = len(re.findall(r"class \w+ extends Strategy\b", template))
-        return cls(draws[-1], len(draws), hot, strategy_count)
+        hot = sorted(n for n, _ in counts.most_common(PICK_COUNT))
+        return cls(draws[-1], len(draws), hot, TOKENS.strategy_count())
 
     @staticmethod
     def join(numbers: list[int]) -> str:
@@ -128,36 +270,168 @@ class Summary:
 
     @property
     def sentence(self) -> str:
-        y, m, d = self.latest.date.split("-")
-        return (f"최신 {self.latest.no}회({y}년 {int(m)}월 {int(d)}일) 당첨번호는 {self.join(self.latest.numbers)}, "
+        return (f"최신 {self.latest.no}회({date_ko(self.latest.date)}) 당첨번호는 {self.join(self.latest.numbers)}, "
                 f"보너스 {self.latest.bonus}번이에요. 1회부터 {self.latest.no}회까지 가장 많이 나온 번호는 "
                 f"{self.join(self.hot)}번이에요.")
 
 
-# ───────── Template tokens (read from the template so colours and bands live in one place) ─────────
-class TemplateTokens:
-    def __init__(self, template: str):
-        self.template = template
+def date_ko(iso: str) -> str:
+    y, m, d = iso.split("-")
+    return f"{y}년 {int(m)}월 {int(d)}일"
 
-    def css(self, name: str) -> str:
-        match = re.search(rf"--{re.escape(name)}:\s*(#[0-9a-fA-F]{{3,8}})", self.template)
-        if not match:
-            raise ValueError(f"CSS token --{name} not found in template")
-        return match.group(1)
 
-    def ball_groups(self) -> list[int]:
-        match = re.search(r"ballGroups:\s*\[([\d,\s]+)\]", self.template)
-        return [int(x) for x in match.group(1).split(",")]
+def draw_path(draw: Draw) -> str:
+    return f"{NAV_PATH['draws']}{draw.no}/"
 
-    def ball_color(self, n: int) -> str:
-        index = next(i for i, upper in enumerate(self.ball_groups()) if n <= upper) + 1
-        return self.css(f"ball-{index}")
+
+def won(n: int) -> str:
+    return f"{n:,}원"
+
+
+EOK = 10 ** 8
+
+
+def won_eok(n: int) -> str:
+    """Large amounts in 억 원 so stat tiles stay on one line."""
+    return f"{n / EOK:,.0f}억 원"
+
+
+# ───────── Pages ─────────
+@dataclass
+class Page:
+    path: str
+    template: str
+    nav: str
+    title: str
+    description: str
+    scripts: list[str] = field(default_factory=list)
+    context: dict = field(default_factory=dict)
+    schema_type: str = "WebPage"
+    lastmod: str = ""
+
+    @property
+    def url(self) -> str:
+        return SITE.absolute(self.path)
+
+    @property
+    def root(self) -> str:
+        return "../" * self.path.count("/")
+
+    def breadcrumbs(self) -> list[tuple[str, str]]:
+        trail = [(SITE.name, SITE.url)]
+        nav = next((n for n in NAV if n.key == self.nav and n.path), None)
+        if nav:
+            trail.append((nav.label, SITE.absolute(nav.path)))
+        if self.path and (not nav or self.path != nav.path):
+            trail.append((self.title.split(" | ")[0], self.url))
+        return trail
+
+    @property
+    def json_ld(self) -> list[dict]:
+        main = {"@context": "https://schema.org", "@type": self.schema_type, "name": self.title.split(" | ")[0],
+                "url": self.url, "description": self.description, "inLanguage": SITE.lang}
+        if self.schema_type == "WebApplication":
+            main |= {"applicationCategory": "UtilitiesApplication", "operatingSystem": "Any", "isAccessibleForFree": True,
+                     "offers": {"@type": "Offer", "price": "0", "priceCurrency": "KRW"}}
+        if self.lastmod:
+            main["dateModified"] = self.lastmod
+        blocks = [main]
+        crumbs = self.breadcrumbs()
+        if len(crumbs) > 1:
+            blocks.append({"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [
+                {"@type": "ListItem", "position": i + 1, "name": name, "item": url} for i, (name, url) in enumerate(crumbs)]})
+        return blocks
+
+
+class SitePages:
+    """Builds every Page from the draw history."""
+
+    def __init__(self, draws: list[Draw], summary: Summary):
+        self.draws, self.summary = draws, summary
+        self.latest_date = summary.latest.date
+
+    def all(self) -> list[Page]:
+        return [self.home(), self.draws_index(), *self.draw_pages(), self.calculator(), self.check(), self.pension()]
+
+    def home(self) -> Page:
+        return Page("", "home.html", "home", SITE.title("로또 번호 생성기 · 역대 당첨번호 분석 알고리즘"),
+                    self.summary.description, ["common.js", "home.js"],
+                    {"draws_payload": [d.payload() for d in self.draws]}, "WebApplication", self.latest_date)
+
+    def draws_index(self) -> Page:
+        years = [{"year": year, "draws": list(group)}
+                 for year, group in groupby(reversed(self.draws), key=lambda d: d.date[:4])]
+        latest = self.summary.latest
+        return Page(NAV_PATH["draws"], "draws.html", "draws",
+                    SITE.title(f"로또 회차별 당첨번호 전체 조회 (1~{latest.no}회)"),
+                    f"로또 6/45 1회부터 {latest.no}회까지 전체 당첨번호와 1등 당첨금, 당첨자 수를 연도별로 정리했어요. "
+                    f"최신 {self.summary.latest_text}.",
+                    ["common.js"], {"years": years}, "CollectionPage", self.latest_date)
+
+    def draw_pages(self) -> list[Page]:
+        stats = draw_stats(self.draws)
+        pages = []
+        for i, d in enumerate(self.draws):
+            first = d.first
+            first_tax = compute_tax(first.prize)
+            ranks = [{**rule, "prize": div.prize, "winners": div.winners}
+                     for rule, div in zip(RULES["ranks"], d.divisions)]
+            prize_text = (f"1등 {first.winners}명, 1인당 {won(first.prize)}(실수령 {won(first_tax.net)})"
+                          if first.winners else "1등 당첨자 없음(이월)")
+            pages.append(Page(
+                draw_path(d), "draw.html", "draws",
+                SITE.title(f"로또 {d.no}회 당첨번호 ({d.date})"),
+                f"로또 {d.no}회({date_ko(d.date)}) 당첨번호는 {Summary.join(d.numbers)}, 보너스 {d.bonus}. "
+                f"{prize_text}. 등수별 당첨금과 번호 분석을 확인하세요.",
+                ["common.js"],
+                {"d": d, "first": first, "first_tax": first_tax, "ranks": ranks, "stats": stats[d.no],
+                 "prev": self.draws[i - 1] if i else None, "next": self.draws[i + 1] if i + 1 < len(self.draws) else None},
+                "WebPage", d.date))
+        return pages
+
+    def calculator(self) -> Page:
+        latest = self.summary.latest
+        record = max(self.draws, key=lambda d: d.first.prize)
+        second = latest.divisions[1].prize if len(latest.divisions) > 1 else 0
+        presets = [{"label": f"{latest.no}회 1등", "value": latest.first.prize},
+                   {"label": f"{latest.no}회 2등", "value": second},
+                   {"label": "역대 최고 1등", "value": record.first.prize},
+                   {"label": "10억 원", "value": 10 ** 9}, {"label": "3억 원", "value": 3 * 10 ** 8}]
+        return Page(NAV_PATH["calculator"], "calculator.html", "calculator",
+                    SITE.title("로또 당첨금 실수령액 계산기 · 세금 자동 계산"),
+                    f"로또 당첨금을 넣으면 세금과 실수령액을 바로 계산해요. {latest.no}회 1등 {won(latest.first.prize)}의 "
+                    f"실수령액은 {won(compute_tax(latest.first.prize).net)}이에요. 3억 원 이하 22%, 초과분 33% 기준.",
+                    ["common.js", "calculator.js"],
+                    {"presets": presets, "record": record, "latest_first": latest.first,
+                     "latest_first_tax": compute_tax(latest.first.prize)},
+                    "WebApplication", self.latest_date)
+
+    def check(self) -> Page:
+        latest = self.summary.latest
+        return Page(NAV_PATH["check"], "check.html", "check",
+                    SITE.title("내 로또 번호 역대 당첨 확인 · 1회부터 몇 등?"),
+                    f"번호 6개를 고르면 1회부터 {latest.no}회까지 매주 샀을 때 몇 등에 몇 번 당첨됐는지, "
+                    "쓴 돈과 받은 당첨금을 계산해요.",
+                    ["common.js", "check.js"],
+                    {"draws_payload": [d.payload() for d in self.draws], "max_number": MAX_NUMBER},
+                    "WebApplication", self.latest_date)
+
+    def pension(self) -> Page:
+        ranks = []
+        for r in RULES["pension"]["ranks"]:
+            amount = r.get("monthly") or r["lump"]
+            text = f"매월 {won(amount)} × {r['months'] // 12}년" if "monthly" in r else won(amount)
+            ranks.append({**r, "amount_text": text, "net": compute_tax(amount, deduct_ticket=False).net})
+        first = RULES["pension"]["ranks"][0]
+        return Page(NAV_PATH["pension"], "pension.html", "pension",
+                    SITE.title("연금복권720+ 번호 생성기 · 등수별 당첨금"),
+                    f"연금복권720+ 조와 6자리 번호를 무작위로 뽑아요. 1등은 매월 {won(first['monthly'])}씩 "
+                    f"{first['months'] // 12}년, 세후 매월 {won(ranks[0]['net'])}이에요. 등수별 당첨금과 구매 방법 정리.",
+                    ["common.js", "pension.js"], {"pension_ranks": ranks}, "WebApplication", self.latest_date)
 
 
 # ───────── Font ─────────
-class FontEmbedder:
-    """Subsets the font to the characters the page uses and returns an inline @font-face rule."""
-
+class FontSubset:
     def __init__(self, url: str, cache: Path):
         self.url, self.cache = url, cache
 
@@ -166,7 +440,7 @@ class FontEmbedder:
             download(self.url, self.cache)
         return self.cache
 
-    def font_face(self, text: str) -> str:
+    def build(self, text: str) -> bytes:
         from fontTools import subset  # requires: pip install -r requirements.txt
 
         options = subset.Options()
@@ -178,64 +452,18 @@ class FontEmbedder:
         subsetter.subset(font)
         buffer = io.BytesIO()
         subset.save_font(font, buffer, options)
-        data = base64.b64encode(buffer.getvalue()).decode("ascii")
+        return buffer.getvalue()
+
+    @staticmethod
+    def face(src: str) -> str:
         return (f'@font-face {{ font-family: "{FONT_FAMILY}"; font-weight: {FONT_WEIGHT_RANGE}; '
-                f'font-display: swap; src: url(data:font/woff2;base64,{data}) format("woff2"); }}')
-
-
-# ───────── SEO head ─────────
-class SeoHead:
-    def __init__(self, site: Site, summary: Summary):
-        self.site, self.summary = site, summary
-
-    def json_ld(self) -> str:
-        data = {
-            "@context": "https://schema.org",
-            "@type": "WebApplication",
-            "name": self.site.name,
-            "url": self.site.url,
-            "description": self.summary.description,
-            "inLanguage": self.site.lang,
-            "applicationCategory": "UtilitiesApplication",
-            "operatingSystem": "Any",
-            "isAccessibleForFree": True,
-            "offers": {"@type": "Offer", "price": "0", "priceCurrency": "KRW"},
-            "image": self.site.absolute(self.site.og_image),
-            "dateModified": self.summary.latest.date,
-        }
-        return json.dumps(data, ensure_ascii=False, separators=(",", ":"))
-
-    def render(self) -> str:
-        e = lambda v: html.escape(v, quote=True)
-        image = self.site.absolute(self.site.og_image)
-        width, height = self.site.og_size
-        tags = [
-            f'<meta name="description" content="{e(self.summary.description)}">',
-            f'<link rel="canonical" href="{e(self.site.url)}">',
-            '<meta name="robots" content="index, follow, max-image-preview:large">',
-            f'<meta property="og:type" content="website">',
-            f'<meta property="og:site_name" content="{e(self.site.name)}">',
-            f'<meta property="og:locale" content="{self.site.locale}">',
-            f'<meta property="og:title" content="{e(self.site.title)}">',
-            f'<meta property="og:description" content="{e(self.summary.description)}">',
-            f'<meta property="og:url" content="{e(self.site.url)}">',
-            f'<meta property="og:image" content="{e(image)}">',
-            f'<meta property="og:image:width" content="{width}">',
-            f'<meta property="og:image:height" content="{height}">',
-            f'<meta property="og:image:alt" content="{e(self.summary.latest_text)}">',
-            '<meta name="twitter:card" content="summary_large_image">',
-            f'<meta name="twitter:title" content="{e(self.site.title)}">',
-            f'<meta name="twitter:description" content="{e(self.summary.description)}">',
-            f'<meta name="twitter:image" content="{e(image)}">',
-            f'<script type="application/ld+json">{self.json_ld()}</script>',
-        ]
-        return "\n".join(tags)
+                f'font-display: swap; src: url({src}) format("woff2"); }}\n')
 
 
 # ───────── Preview image ─────────
 class OgImage:
-    def __init__(self, site: Site, summary: Summary, tokens: TemplateTokens, font_path: Path):
-        self.site, self.summary, self.tokens, self.font_path = site, summary, tokens, font_path
+    def __init__(self, summary: Summary, font_path: Path):
+        self.summary, self.font_path = summary, font_path
 
     def font(self, size: int, weight: int):
         from PIL import ImageFont
@@ -247,78 +475,95 @@ class OgImage:
     def render(self, out: Path) -> None:
         from PIL import Image, ImageDraw
 
-        width, height = self.site.og_size
+        width, height = SITE.og_size
         pad, ball, gap = 80, 104, 20
-        img = Image.new("RGB", (width, height), self.tokens.css("bg"))
+        img = Image.new("RGB", (width, height), TOKENS.color("bg"))
         draw = ImageDraw.Draw(img)
-        ink, muted = self.tokens.css("ink"), self.tokens.css("muted")
+        ink, muted = TOKENS.color("ink"), TOKENS.color("muted")
         draw.text((pad, pad), "로또 6/45 데이터 실험실", font=self.font(34, 600), fill=muted)
-        draw.text((pad, pad + 52), self.site.name, font=self.font(92, 800), fill=ink)
+        draw.text((pad, pad + 52), SITE.name, font=self.font(92, 800), fill=ink)
         draw.text((pad, pad + 172), f"최신 {self.summary.latest.no}회 · {self.summary.latest.date}",
                   font=self.font(34, 600), fill=muted)
-
-        balls = [*self.summary.latest.numbers, None, self.summary.latest.bonus]
         x, y = pad, height - pad - ball
         number_font, plus_font = self.font(46, 700), self.font(52, 600)
-        for n in balls:
+        for n in [*self.summary.latest.numbers, None, self.summary.latest.bonus]:
             if n is None:
                 draw.text((x + 4, y + ball / 2), "+", font=plus_font, fill=muted, anchor="lm")
                 x += 52
                 continue
-            draw.ellipse((x, y, x + ball, y + ball), fill=self.tokens.ball_color(n))
-            draw.text((x + ball / 2, y + ball / 2), str(n), font=number_font, fill=self.tokens.css("ball-text"), anchor="mm")
+            draw.ellipse((x, y, x + ball, y + ball), fill=TOKENS.color(f"ball-{TOKENS.ball_band(n)}"))
+            draw.text((x + ball / 2, y + ball / 2), str(n), font=number_font, fill=TOKENS.color("ball-text"), anchor="mm")
             x += ball + gap
         img.save(out, optimize=True)
 
 
-# ───────── Pages ─────────
-class Sitemap:
-    def __init__(self, site: Site, summary: Summary):
-        self.site, self.summary = site, summary
-
-    def render(self) -> str:
-        return ('<?xml version="1.0" encoding="UTF-8"?>\n'
-                '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
-                f"  <url><loc>{html.escape(self.site.url)}</loc><lastmod>{self.summary.latest.date}</lastmod></url>\n"
-                "</urlset>\n")
+def sitemap(pages: list[Page]) -> str:
+    urls = "\n".join(f"  <url><loc>{p.url}</loc><lastmod>{p.lastmod}</lastmod></url>" for p in pages)
+    return ('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+            f"{urls}\n</urlset>\n")
 
 
-class PageBuilder:
-    def __init__(self, site: Site, fonts: FontEmbedder):
-        self.site, self.fonts = site, fonts
+# ───────── Builder ─────────
+class SiteBuilder:
+    def __init__(self, draws: list[Draw]):
+        self.draws = draws
+        self.summary = Summary.of(draws)
+        self.env = Environment(loader=FileSystemLoader(TEMPLATES), autoescape=True, undefined=StrictUndefined,
+                               trim_blocks=True, lstrip_blocks=True)
+        self.env.globals.update(site=SITE, nav=NAV, rules=RULES, summary=self.summary,
+                                ball_band=TOKENS.ball_band, draw_path=draw_path, date_ko=date_ko, won_eok=won_eok)
+        self.fonts = FontSubset(FONT_URL, FONT_CACHE)
+        self.version = self.source_hash()
+
+    def source_hash(self) -> str:
+        digest = hashlib.sha256(str(self.summary.latest.no).encode())
+        for path in sorted([*SRC.rglob("*"), Path(__file__)]):
+            if path.is_file():
+                digest.update(path.read_bytes())
+        return digest.hexdigest()[:10]
 
     @staticmethod
-    def inject(text: str, placeholder: str, value: str) -> str:
-        if placeholder not in text:
-            raise ValueError(f"{placeholder} not found in template")
-        return text.replace(placeholder, value)
+    def js(name: str) -> str:
+        return (JS_DIR / name).read_text(encoding="utf-8")
 
-    def body(self, template: str, draws: list[Draw], summary: Summary) -> str:
-        payload = json.dumps([d.__dict__ for d in draws], ensure_ascii=False, separators=(",", ":"))
-        page = self.inject(template, Placeholder.FONT, self.fonts.font_face(template + summary.sentence))
-        page = self.inject(page, Placeholder.SUMMARY, html.escape(summary.sentence))
-        page = self.inject(page, Placeholder.UPDATED, f"마지막 업데이트: {summary.latest.date} ({summary.latest.no}회)")
-        return self.inject(page, Placeholder.DATA, payload)
+    def render(self, page: Page, inline: bool = False, css_inline: str = "") -> str:
+        assets = ({"css_inline": css_inline, "js": [self.js(s) for s in page.scripts]} if inline else
+                  {"css": f"{ASSETS}site.css?v={self.version}", "js": [f"{ASSETS}{s}?v={self.version}" for s in page.scripts]})
+        return self.env.get_template(page.template).render(page=page, root=page.root, inline=inline, assets=assets, **page.context)
 
-    def document(self, fragment: str, summary: Summary) -> str:
-        head_end = fragment.index("</style>") + len("</style>")
-        head = re.sub(r"<title>.*?</title>", f"<title>{html.escape(self.site.title)}</title>", fragment[:head_end], count=1)
-        head = self.inject(head, Placeholder.HEAD, SeoHead(self.site, summary).render())
-        return (f'<!doctype html>\n<html lang="{self.site.lang}">\n<head>\n<meta charset="utf-8">\n'
-                '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">\n'
-                f"{head}\n</head>\n<body>{fragment[head_end:]}\n</body>\n</html>\n")
+    def build(self) -> list[Page]:
+        if OUT.exists():
+            shutil.rmtree(OUT)
+        pages = SitePages(self.draws, self.summary).all()
+        html_by_path = {page.path: self.render(page) for page in pages}
 
-    def build(self, draws: list[Draw]) -> Summary:
-        template = TEMPLATE_FILE.read_text(encoding="utf-8")
-        summary = Summary.of(draws, template)
-        fragment = self.body(template, draws, summary)
+        scripts = sorted({s for page in pages for s in page.scripts})
+        glyph_text = "".join(html_by_path.values()) + "".join(self.js(s) for s in scripts) + BASE_CSS.read_text(encoding="utf-8")
+        font = self.fonts.build(glyph_text)
+        css = BASE_CSS.read_text(encoding="utf-8")
 
-        (ROOT / "index.html").write_text(self.document(fragment, summary), encoding="utf-8")
-        CACHE_DIR.mkdir(exist_ok=True)
-        (CACHE_DIR / "artifact.html").write_text(self.inject(fragment, Placeholder.HEAD, ""), encoding="utf-8")
-        (ROOT / "sitemap.xml").write_text(Sitemap(self.site, summary).render(), encoding="utf-8")
-        OgImage(self.site, summary, TemplateTokens(template), self.fonts.path()).render(ROOT / self.site.og_image)
-        return summary
+        self.write(f"{ASSETS}{FONT_FILE}", font)
+        self.write(f"{ASSETS}site.css", FontSubset.face(f"{FONT_FILE}?v={self.version}") + css)
+        for script in scripts:
+            self.write(f"{ASSETS}{script}", self.js(script))
+        for path, html in html_by_path.items():
+            self.write(f"{path}index.html", html)
+        self.write("sitemap.xml", sitemap(pages))
+        OgImage(self.summary, self.fonts.path()).render(OUT / SITE.og_image)
+
+        inline_css = FontSubset.face(f"data:font/woff2;base64,{base64.b64encode(font).decode()}") + css
+        CACHE.mkdir(exist_ok=True)
+        ARTIFACT_FILE.write_text(self.render(pages[0], inline=True, css_inline=inline_css), encoding="utf-8")
+        return pages
+
+    @staticmethod
+    def write(relative: str, content: str | bytes) -> None:
+        target = OUT / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        if isinstance(content, bytes):
+            target.write_bytes(content)
+        else:
+            target.write_text(content, encoding="utf-8")
 
 
 def main() -> None:
@@ -330,8 +575,8 @@ def main() -> None:
     if args.update:
         repo.update()
     draws = repo.load()
-    summary = PageBuilder(SITE, FontEmbedder(FONT_URL, FONT_CACHE)).build(draws)
-    print(f"Built index.html, og.png, sitemap.xml: draws 1-{summary.latest.no} ({summary.total} total)")
+    pages = SiteBuilder(draws).build()
+    print(f"Built {len(pages)} pages into {OUT.name}/: draws 1-{draws[-1].no}")
 
 
 if __name__ == "__main__":

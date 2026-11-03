@@ -1,0 +1,22 @@
+{#- Shared view fragments. `ball_band(n)` comes from the build (same colour bands as common.js). -#}
+{% macro ball(n, size="") -%}
+<span class="ball{% if size %} {{ size }}{% endif %}" style="--c: var(--ball-{{ ball_band(n) }})">{{ n }}</span>
+{%- endmacro %}
+
+{% macro draw_balls(draw, size="") -%}
+<div class="balls">{% for n in draw.numbers %}{{ ball(n, size) }}{% endfor %}<span class="plus">+</span>{{ ball(draw.bonus, size) }}</div>
+{%- endmacro %}
+
+{% macro ad_slot(name) -%}
+<aside class="ad-slot" data-slot="{{ name }}" aria-label="광고" hidden></aside>
+{%- endmacro %}
+
+{% macro stat(label, value="", accent=false, id=none) -%}
+<div class="stat{% if accent %} accent{% endif %}"><span>{{ label }}</span><b{% if id %} id="{{ id }}"{% endif %}>{{ value }}</b></div>
+{%- endmacro %}
+
+{% macro won(n) -%}{{ "{:,}".format(n) }}원{%- endmacro %}
+
+{% macro data_json(id, value) -%}
+<script type="application/json" id="{{ id }}">{{ value | tojson }}</script>
+{%- endmacro %}

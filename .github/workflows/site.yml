@@ -1,6 +1,6 @@
 name: Build and deploy site
 
-# One workflow owns the site: it pulls new draws, commits the rebuilt files, and deploys to GitHub Pages.
+# One workflow owns the site: it pulls new draws, commits data/, builds _site/ and deploys it to GitHub Pages.
 # Draws happen Saturday ~20:35 KST; the schedule runs Sunday 09:17 KST (00:17 UTC).
 on:
   push:
@@ -17,9 +17,6 @@ permissions:
 concurrency:
   group: pages
   cancel-in-progress: false
-
-env:
-  SITE_FILES: index.html og.png sitemap.xml
 
 jobs:
   build:
@@ -45,19 +42,16 @@ jobs:
 
       - name: Commit if changed
         run: |
-          if git diff --quiet -- data $SITE_FILES; then
+          if git diff --quiet -- data; then
             echo "No changes to commit."
             exit 0
           fi
           latest=$(python -c "import json; print(max(d['draw_no'] for d in json.load(open('data/all.json'))))")
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data $SITE_FILES
+          git add data
           git commit -m "Update draws through #${latest}"
           git push
-
-      - name: Stage site
-        run: mkdir _site && cp $SITE_FILES _site/
 
       - uses: actions/upload-pages-artifact@v5
         with:

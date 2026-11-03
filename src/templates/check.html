@@ -1,0 +1,42 @@
+{% extends "layout.html" %}
+{% block header %}
+    <h1>내 로또 번호 역대 당첨 확인</h1>
+    <p class="lede">번호 6개를 고르면 1회부터 {{ summary.latest.no }}회까지 매주 그 번호로 샀을 때 몇 번 당첨됐는지, 얼마를 쓰고 얼마를 받았을지 계산해요.</p>
+{% endblock %}
+
+{% block content %}
+  <section class="card" aria-labelledby="pick-h">
+    <div class="sec-head"><h2 id="pick-h">번호 고르기</h2><span class="eyebrow" id="pick-count"></span></div>
+    <div class="picker" id="picker" role="group" aria-label="1부터 {{ max_number }}까지 번호"></div>
+    <div class="controls">
+      <button type="button" class="chip" id="random">무작위 6개</button>
+      <button type="button" class="chip" id="clear">모두 지우기</button>
+      <button type="button" class="go" id="check" disabled>당첨 확인</button>
+    </div>
+  </section>
+
+  <section class="card" aria-labelledby="result-h" id="result" hidden>
+    <div class="sec-head"><h2 id="result-h">결과</h2><div class="balls" id="result-balls"></div></div>
+    <div class="stats" id="result-stats" aria-live="polite"></div>
+    <div class="table-box"><table id="rank-table"></table></div>
+    <h3 class="sub">높은 등수 당첨 회차</h3>
+    <div class="table-box"><table id="hit-table"></table></div>
+    <div class="controls"><button type="button" class="chip" id="share">결과 링크 복사</button><span class="eyebrow" id="share-status" aria-live="polite"></span></div>
+  </section>
+
+  {{ ui.ad_slot("afterResult") }}
+
+  <section class="card prose" aria-labelledby="how-h">
+    <h2 id="how-h">계산 방법</h2>
+    <dl>
+      {%- for r in rules.ranks %}
+      <dt>{{ r.name }}</dt><dd>{{ r.rule }}</dd>
+      {%- endfor %}
+    </dl>
+    <p>당첨금은 각 회차에 실제로 지급된 등수별 1인당 금액을 그대로 더했어요. 구입 비용은 회차마다 1게임({{ ui.won(rules.tax.ticketPrice) }})으로 계산했고, 세금은 빼지 않았어요.</p>
+  </section>
+{% endblock %}
+
+{% block data %}
+{{ ui.data_json("draws-data", draws_payload) }}
+{% endblock %}

@@ -1,0 +1,72 @@
+{%- import "macros.html" as ui -%}
+{%- if not inline %}<!doctype html>
+<html lang="{{ site.lang }}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+{%- endif %}
+<title>{% if inline %}{{ site.name }}{% else %}{{ page.title }}{% endif %}</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+{%- if not inline %}
+<meta name="description" content="{{ page.description }}">
+<link rel="canonical" href="{{ page.url }}">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="{{ site.name }}">
+<meta property="og:locale" content="{{ site.locale }}">
+<meta property="og:title" content="{{ page.title }}">
+<meta property="og:description" content="{{ page.description }}">
+<meta property="og:url" content="{{ page.url }}">
+<meta property="og:image" content="{{ site.absolute(site.og_image) }}">
+<meta property="og:image:width" content="{{ site.og_size[0] }}">
+<meta property="og:image:height" content="{{ site.og_size[1] }}">
+<meta property="og:image:alt" content="{{ summary.latest_text }}">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{{ page.title }}">
+<meta name="twitter:description" content="{{ page.description }}">
+<meta name="twitter:image" content="{{ site.absolute(site.og_image) }}">
+{%- for block in page.json_ld %}
+<script type="application/ld+json">{{ block | tojson }}</script>
+{%- endfor %}
+<link rel="stylesheet" href="{{ root }}{{ assets.css }}">
+{%- else %}
+<style>{{ assets.css_inline | safe }}</style>
+{%- endif %}
+{%- if not inline %}
+</head>
+<body>
+{%- endif %}
+<div class="wrap">
+  <header>
+    <div class="topbar">
+      <a class="eyebrow brand" href="{{ root }}">{{ site.name }} · 동행복권 로또 6/45</a>
+      <div class="seg raised" id="theme-seg" role="group" aria-label="화면 테마"></div>
+    </div>
+    {%- if not inline %}
+    <nav class="site-nav" aria-label="사이트 메뉴">
+      {%- for item in nav %}
+      <a href="{{ root }}{{ item.path }}"{% if item.key == page.nav %} aria-current="page"{% endif %}>{{ item.label }}</a>
+      {%- endfor %}
+    </nav>
+    {%- endif %}
+    {% block header %}{% endblock %}
+  </header>
+
+  {% block content %}{% endblock %}
+
+  <footer>데이터: <a href="https://github.com/smok95/lotto" target="_blank" rel="noopener">smok95/lotto</a> (동행복권 공개 당첨번호). 정확한 결과는 동행복권 공식 사이트에서 확인하세요. 마지막 업데이트: {{ summary.latest.date }} ({{ summary.latest.no }}회)</footer>
+</div>
+
+{{ ui.data_json("rules", rules) }}
+{%- block data %}{% endblock %}
+{%- for script in assets.js %}
+{%- if inline %}
+<script>{{ script | safe }}</script>
+{%- else %}
+<script src="{{ root }}{{ script }}"></script>
+{%- endif %}
+{%- endfor %}
+{%- if not inline %}
+</body>
+</html>
+{%- endif %}
