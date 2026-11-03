@@ -231,19 +231,20 @@ const CONFIG = Object.freeze({
   chartTicks: 5,
   /* Fill in the IDs, then rebuild. Open the page with #ad-preview to see the slots. */
   ads: {
-    provider: "",                            // "coupang" | "adsense" | "" (off)
+    provider: "coupang",                     // "coupang" | "adsense" | "" (off)
     adsenseClient: "",                       // "ca-pub-…"
     coupang: {
-      trackingCode: "",                      // "AF…" from Coupang Partners
+      trackingCode: "AF1710075",             // "AF…" from Coupang Partners
       template: "carousel",
+      sizes: { mobile: { width: 320, height: 100 }, desktop: { width: 680, height: 140 } },
       widgetUrl: "https://ads-partners.coupang.com/widgets.html",
-      disclosure: "이 페이지는 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.",
+      disclosure: "이 포스팅은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.",
     },
     previewHash: "#ad-preview",
     sizes: { mobile: { width: 320, height: 100 }, desktop: { width: 728, height: 90 }, breakpoint: 760 },
     slots: {
-      afterGenerator: { coupangId: "", adsenseSlot: "" },   // Coupang dynamic banner id / AdSense slot id
-      beforeBacktest: { coupangId: "", adsenseSlot: "" },
+      afterGenerator: { coupangId: "1046130", adsenseSlot: "" },   // Coupang dynamic banner id / AdSense slot id
+      beforeBacktest: { coupangId: "1046130", adsenseSlot: "" },
     },
   },
   themes: [{ label: "시스템", value: "system" }, { label: "라이트", value: "light" }, { label: "다크", value: "dark" }],
@@ -689,8 +690,10 @@ class AdPreview extends AdNetwork {
 }
 class AdManager {
   static NETWORKS = { coupang: Coupang, adsense: AdSense };
-  static size() {
-    const { mobile, desktop, breakpoint } = CONFIG.ads.sizes;
+  /** A network may override the default slot sizes (e.g. CONFIG.ads.coupang.sizes). */
+  static size(provider) {
+    const { breakpoint } = CONFIG.ads.sizes;
+    const { mobile, desktop } = CONFIG.ads[provider]?.sizes ?? CONFIG.ads.sizes;
     const isMobile = window.innerWidth < breakpoint;
     return { ...(isMobile ? mobile : desktop), isMobile };
   }
@@ -698,7 +701,7 @@ class AdManager {
     const preview = location.hash === CONFIG.ads.previewHash;
     const Network = preview ? AdPreview : AdManager.NETWORKS[CONFIG.ads.provider];
     if (!Network) return;
-    const network = new Network(AdManager.size());
+    const network = new Network(AdManager.size(CONFIG.ads.provider));
     document.querySelectorAll(".ad-slot").forEach((container) => {
       const slot = CONFIG.ads.slots[container.dataset.slot] || {};
       container.hidden = !network.render(container, slot);
