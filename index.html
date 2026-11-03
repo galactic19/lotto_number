@@ -10,6 +10,7 @@
   --muted: #6b7684;
   --rule: #e5e8eb;
   --bar: #d1d6db;
+  --reel-bg: #e8ecf0;
   --accent: #2f6bff;
   --accent-soft: #edf3ff;
   --on-accent: #ffffff;
@@ -20,10 +21,10 @@
   --radius: 16px;
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
-  --bg: #0f1216; --surface: #191d23; --ink: #eef1f4; --muted: #8f99a6; --rule: #262b33; --bar: #3a414b;
+  --bg: #0f1216; --surface: #191d23; --ink: #eef1f4; --muted: #8f99a6; --rule: #262b33; --bar: #3a414b; --reel-bg: #262c34;
   --accent: #5b8cff; --accent-soft: #1b2540; color-scheme: dark; } }
 :root[data-theme="dark"] {
-  --bg: #0f1216; --surface: #191d23; --ink: #eef1f4; --muted: #8f99a6; --rule: #262b33; --bar: #3a414b;
+  --bg: #0f1216; --surface: #191d23; --ink: #eef1f4; --muted: #8f99a6; --rule: #262b33; --bar: #3a414b; --reel-bg: #262c34;
   --accent: #5b8cff; --accent-soft: #1b2540; color-scheme: dark; }
 
 * { box-sizing: border-box; }
@@ -50,10 +51,13 @@ header { display: grid; gap: 10px; padding-block: 8px 20px; }
 .balls { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .ball { flex: none; width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center;
   font-weight: 700; font-size: .95rem; letter-spacing: 0; color: var(--ball-text); background: var(--c);
-  font-variant-numeric: tabular-nums; }
-.ball.reel { background: transparent; overflow: hidden; display: block; }
-.reel .strip { display: flex; flex-direction: column; width: 100%; height: 100%; will-change: transform; }
-.reel .cell { flex: 0 0 100%; display: grid; place-items: center; background: var(--c); }
+  font-variant-numeric: tabular-nums; transition: background-color .35s ease-out, color .35s ease-out; }
+/* While rolling, the ball stays a quiet blank and only the digits scroll; colour arrives on landing */
+.ball.reel { background: var(--reel-bg); color: var(--ink); overflow: hidden; display: block; position: relative; }
+.ball.reel::after { content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(var(--reel-bg), transparent 30%, transparent 70%, var(--reel-bg)); }
+.reel .strip { display: flex; flex-direction: column; width: 100%; height: 100%; will-change: transform, filter; }
+.reel .cell { flex: 0 0 100%; display: grid; place-items: center; }
 .plus { color: var(--muted); font-weight: 600; padding-inline: 2px; }
 
 /* Strategy picker */
@@ -123,8 +127,8 @@ footer a { color: inherit; }
 .why { transition: opacity .3s; }
 .why.pending { opacity: 0; }
 @media (prefers-reduced-motion: no-preference) {
-  .ball.settled { animation: settle .35s ease-out; }
-  @keyframes settle { 0% { transform: scale(1.12); } 100% { transform: scale(1); } }
+  .ball.settled { animation: settle .45s cubic-bezier(.3, 1.5, .5, 1); }
+  @keyframes settle { 0% { transform: scale(.9); } 100% { transform: scale(1); } }
 }
 @media (max-width: 520px) { .card { padding: 20px 16px; } .go { width: 100%; margin-left: 0; } }
 </style>
@@ -186,7 +190,7 @@ const CONFIG = Object.freeze({
   recentWindow: 50,
   chartTicks: 5,
   roll: { baseMs: 900, perBallMs: 150, perTicketMs: 120, baseCells: 14, cellsPerBall: 3,
-    easing: "cubic-bezier(.12, .8, .22, 1.04)" },
+    easing: "cubic-bezier(.12, .8, .22, 1.04)", blurPx: 1.2, sharpAt: 0.55 },
   chartWindows: [{ label: "전체", size: null }, { label: "최근 100회", size: 100 }, { label: "최근 50회", size: 50 }],
   ballGroups: [10, 20, 30, 40, 45],             // upper bound of each official colour band
   balance: { sumPercentiles: [0.1, 0.9], oddRange: [2, 4], lowRange: [2, 4], maxRun: 2, maxTries: 400 },
@@ -407,12 +411,12 @@ const ball = (n, size = "") => el("span", { class: `ball ${size}`.trim(), style:
 class BallReel {
   static get reduced() { return window.matchMedia("(prefers-reduced-motion: reduce)").matches; }
   static randomNumber() { return NUMBERS[Math.floor(Math.random() * NUMBERS.length)]; }
-  static cell(n) { return el("span", { class: "cell", style: `--c: var(--ball-${groupIndex(n)})`, text: String(n) }); }
+  static cell(n) { return el("span", { class: "cell", text: String(n) }); }
 
   /** Rolls `node` (a .ball) through a strip of random numbers ending on `finalNumber`. Resolves when it lands. */
   static spin(node, finalNumber, ticketIndex, ballIndex) {
     if (BallReel.reduced) return Promise.resolve();
-    const { baseMs, perBallMs, perTicketMs, baseCells, cellsPerBall, easing } = CONFIG.roll;
+    const { baseMs, perBallMs, perTicketMs, baseCells, cellsPerBall, easing, blurPx, sharpAt } = CONFIG.roll;
     const count = baseCells + ballIndex * cellsPerBall;
     const numbers = [...Array.from({ length: count }, BallReel.randomNumber), finalNumber];
     const strip = el("span", { class: "strip" }, numbers.map(BallReel.cell));
@@ -420,7 +424,12 @@ class BallReel {
     node.replaceChildren(strip);
     const travel = `translateY(-${(count / numbers.length) * 100}%)`;
     const duration = baseMs + ballIndex * perBallMs + ticketIndex * perTicketMs;
-    return strip.animate([{ transform: "translateY(0)" }, { transform: travel }], { duration, easing, fill: "forwards" })
+    const frames = [
+      { transform: "translateY(0)", filter: `blur(${blurPx}px)` },
+      { offset: sharpAt, filter: "blur(0)" },
+      { transform: travel, filter: "blur(0)" },
+    ];
+    return strip.animate(frames, { duration, easing, fill: "forwards" })
       .finished.then(() => {
         node.classList.remove("reel");
         node.replaceChildren(String(finalNumber));
