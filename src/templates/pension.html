@@ -1,7 +1,7 @@
 {% extends "layout.html" %}
 {% block header %}
     <h1>연금복권720+ 번호 생성기</h1>
-    <p class="lede">조 1개와 숫자 {{ rules.pension.digits }}자리를 무작위로 뽑아요. 1등은 매월 {{ ui.won(rules.pension.ranks[0].monthly) }}씩 {{ (rules.pension.ranks[0].months / 12) | int }}년 동안 받아요.</p>
+    <p class="lede">조 1개와 숫자 {{ rules.pension.digits }}자리를 무작위로 뽑아요.<br>1등은 매월 {{ ui.won(rules.pension.ranks[0].monthly) }}씩 {{ (rules.pension.ranks[0].months / 12) | int }}년 동안 받아요.</p>
 {% endblock %}
 
 {% block content %}
@@ -27,7 +27,7 @@
     <h2 id="prize-h">등수별 당첨금</h2>
     <div class="table-box">
       <table>
-        <thead><tr><th>등수</th><th>조건</th><th class="num">당첨금</th><th class="num">세후 (회당)</th></tr></thead>
+        <thead><tr><th>등수</th><th>조건</th><th class="num">당첨금</th><th class="num">세금 떼고 한 번에 받는 돈</th></tr></thead>
         <tbody>
           {%- for r in pension_ranks %}
           <tr><td>{{ r.name }}</td><td>{{ r.rule }}</td><td class="num">{{ r.amount_text }}</td><td class="num">{{ ui.won(r.net) }}</td></tr>
@@ -35,12 +35,13 @@
         </tbody>
       </table>
     </div>
-    <p class="note">연금형 당첨금은 매월 받을 때마다 22% 세금을 떼요. 1등을 {{ (rules.pension.ranks[0].months / 12) | int }}년 동안 받으면 세후 총 {{ ui.won(pension_ranks[0].net * rules.pension.ranks[0].months) }}이에요.</p>
+    <p class="note">매월 나눠 받는 당첨금은 받을 때마다 세금 22%를 떼요.<br>1등을 {{ (rules.pension.ranks[0].months / 12) | int }}년 동안 다 받으면, 세금을 떼고 모두 {{ ui.won(pension_ranks[0].net * rules.pension.ranks[0].months) }}이에요.</p>
   </section>
 
   <section class="card prose" aria-labelledby="tip-h">
     <h2 id="tip-h">연금복권720+ 구매 방법</h2>
-    <p>1장에 {{ ui.won(rules.pension.ticketPrice) }}이고, 1조부터 {{ rules.pension.groups }}조 중 하나와 {{ rules.pension.digits }}자리 숫자로 이뤄져요. 같은 {{ rules.pension.digits }}자리를 모든 조로 사면 1등과 2등을 함께 노릴 수 있어서 많이 쓰는 방법이에요. 이 생성기에서 '같은 번호로 1~{{ rules.pension.groups }}조 모두'를 켜면 그렇게 뽑아요.</p>
-    <p>당첨번호 추첨은 매주 목요일 저녁에 해요. 로또 번호가 필요하면 <a class="link" href="{{ root }}">로또 번호 생성기</a>를 쓰세요.</p>
+    <p>한 장에 {{ ui.won(rules.pension.ticketPrice) }}이고, 1~{{ rules.pension.groups }}조 중 하나와 숫자 {{ rules.pension.digits }}자리로 이뤄져요.</p>
+    <p>같은 숫자를 모든 조로 사면 1등과 2등을 함께 노릴 수 있어서 많이들 이렇게 사요.<br>위에서 '같은 번호로 1~{{ rules.pension.groups }}조 모두'를 켜면 그렇게 뽑아 드려요.</p>
+    <p>추첨은 매주 목요일 저녁에 해요. 로또 번호가 필요하면 <a class="link" href="{{ root }}">로또 번호 생성기</a>를 써 보세요.</p>
   </section>
 {% endblock %}

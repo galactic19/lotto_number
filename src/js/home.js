@@ -138,17 +138,17 @@ class Strategy {
 const topOf = (scores, ticket) => ticket.slice().sort((a, b) => scores[b] - scores[a])[0];
 
 class HotStrategy extends Strategy {
-  constructor() { super("hot", "핫넘버", `최근 ${CONFIG.recentWindow}회에 자주 나온 번호일수록 가중치를 높여요.`); }
+  constructor() { super("hot", "핫넘버", `최근 ${CONFIG.recentWindow}회 동안 자주 나온 번호가 더 잘 뽑혀요.`); }
   weights(h) { return h.frequency(CONFIG.recentWindow).map((f, n) => (n ? f + 1 : 0)); }
-  explain(h, t) { const f = h.frequency(CONFIG.recentWindow), n = topOf(f, t); return `${n}번: 최근 ${CONFIG.recentWindow}회 중 ${f[n]}번 출현`; }
+  explain(h, t) { const f = h.frequency(CONFIG.recentWindow), n = topOf(f, t); return `${n}번: 최근 ${CONFIG.recentWindow}회 동안 ${f[n]}번 나옴`; }
 }
 class ColdStrategy extends Strategy {
-  constructor() { super("cold", "콜드넘버", "오래 안 나온 번호일수록 '나올 때가 됐다'고 보고 가중치를 줘요."); }
+  constructor() { super("cold", "콜드넘버", "오래 안 나온 번호일수록 '나올 때가 됐다'고 보고 더 잘 뽑히게 해요."); }
   weights(h) { return h.gaps().map((g, n) => (n ? g + 1 : 0)); }
-  explain(h, t) { const g = h.gaps(), n = topOf(g, t); return `${n}번: ${g[n]}회째 미출현`; }
+  explain(h, t) { const g = h.gaps(), n = topOf(g, t); return `${n}번: ${g[n]}회째 안 나옴`; }
 }
 class PairStrategy extends Strategy {
-  constructor() { super("pair", "동반출현", "역대로 함께 자주 나온 번호 쌍을 따라가며 조합을 만들어요."); }
+  constructor() { super("pair", "동반출현", "지금까지 같은 회차에 자주 함께 나온 번호끼리 묶어서 골라요."); }
   sample(h, rng) {
     const m = h.pairs();
     const picked = [weightedPick(h.frequency(), rng)];
@@ -161,25 +161,25 @@ class PairStrategy extends Strategy {
   explain(h, t) {
     const m = h.pairs();
     const [a, b] = t.flatMap((x) => t.filter((y) => y > x).map((y) => [x, y])).sort((p, q) => m[q[0]][q[1]] - m[p[0]][p[1]])[0];
-    return `${a}·${b}번: 역대 ${m[a][b]}회 함께 출현`;
+    return `${a}번과 ${b}번: 지금까지 ${m[a][b]}번 함께 나옴`;
   }
 }
 class TransitionStrategy extends Strategy {
-  constructor() { super("trans", "흐름 추적", "지난 회차 번호 다음 회차에 자주 이어서 나온 번호를 골라요 (마르코프 전이)."); }
+  constructor() { super("trans", "흐름 추적", "지난 회차 번호가 나온 다음 주에 자주 이어서 나온 번호를 골라요."); }
   weights(h) {
     const m = h.transitions();
     return zeros().map((_, n) => (n ? h.last.numbers.reduce((s, p) => s + m[p][n], 0) + 1 : 0));
   }
-  explain(h, t) { const w = this.weights(h), n = topOf(w, t); return `${n}번: 지난 회차(${h.last.no}회) 번호 뒤에 ${w[n] - 1}회 이어서 출현`; }
+  explain(h, t) { const w = this.weights(h), n = topOf(w, t); return `${n}번: 지난 회차(${h.last.no}회) 번호 다음에 ${w[n] - 1}번 이어서 나옴`; }
 }
 class BalancedStrategy extends Strategy {
-  constructor() { super("balanced", "균형 랜덤", "완전 랜덤에 균형 필터를 항상 적용해 '당첨번호다운' 모양만 남겨요."); }
+  constructor() { super("balanced", "균형 랜덤", "무작위로 뽑되, 지금까지의 당첨번호와 비슷한 모양인 조합만 남겨요."); }
   generate(h, rng) { return super.generate(h, rng, new BalanceFilter(h)); }
-  explain(_h, t) { return `합계 ${t.reduce((a, b) => a + b, 0)} · 홀짝 ${t.filter((n) => n % 2).length}:${t.filter((n) => !(n % 2)).length}`; }
+  explain(_h, t) { return `합계 ${t.reduce((a, b) => a + b, 0)}, 홀짝 ${t.filter((n) => n % 2).length}:${t.filter((n) => !(n % 2)).length}`; }
 }
 class RandomStrategy extends Strategy {
-  constructor() { super("random", "순수 랜덤", "아무 데이터도 안 쓰는 대조군이에요. 다른 알고리즘과 비교하는 기준점이에요."); }
-  explain() { return "45개 번호 균등 추첨"; }
+  constructor() { super("random", "순수 랜덤", "지난 기록을 보지 않고 뽑아요. 다른 방법과 비교하는 기준이에요."); }
+  explain() { return `${CONFIG.maxNumber}개 번호에서 똑같은 확률로 뽑음`; }
 }
 
 const STRATEGIES = [HotStrategy, ColdStrategy, PairStrategy, TransitionStrategy, BalancedStrategy, RandomStrategy].map((S) => new S());
@@ -274,7 +274,7 @@ class App {
     const W = 900, H = 260, pad = { l: 36, r: 8, t: 12, b: 26 };
     const max = Math.max(...NUMBERS.map((n) => f[n]));
     const hot = new Set([...NUMBERS].sort((a, b) => f[b] - f[a]).slice(0, CONFIG.pickCount));
-    $("legend-text").textContent = `가장 많이 나온 ${CONFIG.pickCount}개: ${[...hot].sort((a, b) => a - b).join(", ")}`;
+    $("legend-text").textContent = `가장 많이 나온 번호 ${CONFIG.pickCount}개: ${[...hot].sort((a, b) => a - b).join(", ")}`;
     const step = niceStep(max, CONFIG.chartTicks);
     const top = Math.ceil(max / step) * step;
     const ticks = Array.from({ length: top / step + 1 }, (_, i) => i * step);
@@ -297,18 +297,18 @@ class App {
   renderBacktest() {
     const { draws, ticketsPerDraw } = CONFIG.backtest;
     const last = this.history.last.no;
-    $("bt-label").textContent = `${last - draws + 1}회 ~ ${last}회`;
-    $("bt-desc").textContent = `최근 ${draws}회차마다, 그 회차 이전 데이터만 가지고 알고리즘별로 ${ticketsPerDraw}게임씩 뽑아 실제 당첨번호와 비교했어요. 무작위로 찍었을 때 기대 적중 개수는 게임당 ${fmt(Backtester.expectedAvg())}개예요.`;
+    $("bt-label").textContent = `${last - draws + 1}~${last}회`;
+    $("bt-desc").textContent = `최근 ${draws}회 동안, 회차마다 그 전 기록만 보고 방법별로 ${ticketsPerDraw}게임씩 뽑아서 실제 당첨번호와 맞춰 봤어요. 아무렇게나 골라도 한 게임에 평균 ${fmt(Backtester.expectedAvg())}개는 맞아요.`;
     const tester = new Backtester(this.history);
     const results = STRATEGIES.map((s) => ({ s, ...tester.run(s) })).sort((a, b) => b.avg - a.avg);
     const maxAvg = Math.max(...results.map((r) => r.avg), Backtester.expectedAvg());
     const row = (cells) => el("tr", {}, cells);
     const bar = (v, cls = "") => el("div", { class: `bar ${cls}`.trim(), style: `width:${(v / maxAvg) * 100}%` });
     $("bt-table").replaceChildren(
-      el("thead", {}, row([el("th", { text: "알고리즘" }), el("th", { class: "num", text: "평균 적중" }), el("th", { text: "" }), el("th", { class: "num", text: `${CONFIG.backtest.minHit}개+ 적중률` }), el("th", { class: "num", text: "최고 적중" })])),
+      el("thead", {}, row([el("th", { text: "방법" }), el("th", { class: "num", text: "평균 맞힌 개수" }), el("th", { text: "" }), el("th", { class: "num", text: `${CONFIG.backtest.minHit}개 이상 맞힌 비율` }), el("th", { class: "num", text: "가장 많이 맞힌 개수" })])),
       el("tbody", {}, [
         ...results.map((r) => row([el("td", { text: r.s.name }), el("td", { class: "num", text: fmt(r.avg) }), el("td", { style: "width:35%" }, bar(r.avg)), el("td", { class: "num", text: `${fmt(r.threeRate * 100, 1)}%` }), el("td", { class: "num", text: `${r.best}개` })])),
-        row([el("td", { text: "이론 기대값" }), el("td", { class: "num", text: fmt(Backtester.expectedAvg()) }), el("td", {}, bar(Backtester.expectedAvg(), "base")), el("td", { class: "num", text: `${fmt(matchProbability(CONFIG.backtest.minHit) * 100, 1)}%` }), el("td", { text: "" })]),
+        row([el("td", { text: "아무렇게나 고를 때" }), el("td", { class: "num", text: fmt(Backtester.expectedAvg()) }), el("td", {}, bar(Backtester.expectedAvg(), "base")), el("td", { class: "num", text: `${fmt(matchProbability(CONFIG.backtest.minHit) * 100, 1)}%` }), el("td", { text: "" })]),
       ]),
     );
   }

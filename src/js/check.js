@@ -69,20 +69,20 @@ class CheckPage {
     const wins = r.counts.reduce((a, b) => a + b, 0);
     const profit = r.prize - r.spent;
     $("result-stats").replaceChildren(
-      ...[["당첨 횟수", `${wins.toLocaleString()}회`], ["쓴 돈", won(r.spent)], ["받은 당첨금", won(r.prize)], [profit >= 0 ? "수익" : "손실", won(Math.abs(profit))]]
+      ...[["당첨된 횟수", `${wins.toLocaleString()}번`], ["쓴 돈", won(r.spent)], ["받은 당첨금", won(r.prize)], [profit >= 0 ? "수익" : "손실", won(Math.abs(profit))]]
         .map(([label, value], i) => el("div", { class: `stat${i === 2 ? " accent" : ""}` }, [el("span", { text: label }), el("b", { text: value })])),
     );
     const row = (cells, tag = "td") => el("tr", {}, cells.map(([content, cls]) => el(tag, { class: cls || "" }, content)));
     $("rank-table").replaceChildren(
-      el("thead", {}, row([["등수"], ["조건"], ["횟수", "num"]], "th")),
-      el("tbody", {}, RULES.ranks.map((rank, i) => row([[rank.name], [rank.rule], [`${r.counts[i]}회`, "num"]]))),
+      el("thead", {}, row([["등수"], ["조건"], ["당첨 횟수", "num"]], "th")),
+      el("tbody", {}, RULES.ranks.map((rank, i) => row([[rank.name], [rank.rule], [`${r.counts[i]}번`, "num"]]))),
     );
     const link = (no) => el("a", { class: "link", href: CHECK.drawPath(no), text: `${no}회` });
     $("hit-table").replaceChildren(
       el("thead", {}, row([["회차"], ["등수"], ["당첨번호"], ["당첨금", "num"]], "th")),
       el("tbody", {}, r.hits.length
         ? r.hits.map(({ draw, rank }) => row([[link(draw.no)], [RULES.ranks[rank].name], [el("div", { class: "balls" }, draw.numbers.map((n) => ball(n)))], [won(draw.prizes[rank] || 0), "num"]]))
-        : [row([[`${RULES.ranks[CHECK.hitRanks - 1].name} 이상 당첨은 없었어요.`]])]),
+        : [row([[`${RULES.ranks[CHECK.hitRanks - 1].name} 이상은 한 번도 없었어요.`]])]),
     );
     $("result").scrollIntoView({ behavior: BallReel.reduced ? "auto" : "smooth", block: "start" });
   }
@@ -90,7 +90,7 @@ class CheckPage {
     const r = this.result;
     const wins = r.counts.reduce((a, b) => a + b, 0);
     const best = RULES.ranks.find((_, i) => r.counts[i] > 0);
-    return { text: `내 로또 번호 ${this.ticket.join(" ")}로 1회부터 매주 샀다면?\n당첨 ${wins}회${best ? ` (최고 ${best.name})` : ""}, 쓴 돈 ${won(r.spent)}, 받은 돈 ${won(r.prize)}` };
+    return { text: `내 로또 번호: ${this.ticket.join(" ")}\n1회부터 매주 이 번호로 샀다면 ${wins}번 당첨${best ? `(최고 ${best.name})` : ""}, 쓴 돈 ${won(r.spent)}, 받은 돈 ${won(r.prize)}` };
   }
 }
 

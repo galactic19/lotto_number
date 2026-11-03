@@ -8,7 +8,7 @@ class Calculator {
     if (shared > 0) this.input.value = shared.toLocaleString("ko-KR");
     Share.bind($("share-result"), () => {
       const r = Tax.compute(this.amount);
-      return { text: `로또 당첨금 ${won(r.prize)}의 실수령액은 ${won(r.net)} (세금 ${won(r.tax)})`, url: Share.pageUrl(`?${CALC.param}=${r.prize}`) };
+      return { text: `로또 당첨금 ${won(r.prize)}을 받으면 세금 ${won(r.tax)}을 떼고 ${won(r.net)}을 받아요.`, url: Share.pageUrl(`?${CALC.param}=${r.prize}`) };
     });
     this.input.addEventListener("input", () => this.update());
     $("presets").addEventListener("click", (e) => {
@@ -25,10 +25,10 @@ class Calculator {
     $("out-net").textContent = won(r.net);
     const row = (cells, tag = "td") => el("tr", {}, cells.map(([text, cls]) => el(tag, { class: cls || "", text })));
     $("breakdown").replaceChildren(
-      el("thead", {}, row([["구간"], ["과세 금액", "num"], ["세율", "num"], ["세금", "num"]], "th")),
+      el("thead", {}, row([["구간"], ["세금을 매기는 금액", "num"], ["세율", "num"], ["세금", "num"]], "th")),
       el("tbody", {}, r.parts.length
         ? r.parts.map((p) => row([[p.range], [won(p.base), "num"], [`${Math.round(p.rate * 100)}%`, "num"], [won(p.tax), "num"]]))
-        : [row([[`${won(Tax.rules.taxFreeLimit)} 이하 비과세`], ["-", "num"], ["0%", "num"], [won(0), "num"]])]),
+        : [row([[`${won(Tax.rules.taxFreeLimit)} 이하라 세금 없음`], ["-", "num"], ["0%", "num"], [won(0), "num"]])]),
     );
   }
 }

@@ -23,8 +23,8 @@
         {%- endif %}
         <tbody>
           {%- for d in chunk %}
-          <tr><td><a class="link" href="{{ root }}{{ draw_path(d) }}">{{ d.no }}회</a></td><td>{{ d.date }}</td><td>{{ ui.draw_balls(d, "sm") }}</td>
-            <td class="num">{% if d.first.winners %}{{ ui.won(d.first.prize) }}{% else %}이월{% endif %}</td><td class="num">{{ d.first.winners }}명</td></tr>
+          <tr><td><a class="link" href="{{ root }}{{ draw_path(d) }}">{{ d.no }}회</a></td><td>{{ date_dot(d.date) }}</td><td>{{ ui.draw_balls(d, "sm") }}</td>
+            <td class="num">{% if d.first.winners %}{{ ui.won(d.first.prize) }}{% else %}다음 회차로 이월{% endif %}</td><td class="num">{{ d.first.winners }}명</td></tr>
           {%- endfor %}
         </tbody>
       </table>

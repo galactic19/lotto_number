@@ -249,3 +249,14 @@ h3.sub { font-size: 1rem; font-weight: 700; margin: 0; }
 .split { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 16px; }
 .rank-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
 .rank-list li { display: flex; align-items: center; gap: 10px; font-variant-numeric: tabular-nums; font-weight: 600; }
+
+/* Readable copy: short paragraphs with breathing room; <br> breaks only apply where there is room */
+.copy { display: grid; gap: 10px; margin: 0; }
+.copy p, .copy li { margin: 0; }
+.copy strong { color: var(--ink); font-weight: 700; }
+.note.copy { gap: 6px; }
+.steps { padding-left: 1.3em; color: var(--muted); max-width: 64ch; }
+.steps li { padding-left: 4px; }
+.verdict { font-size: 1.3rem; font-weight: 800; line-height: 1.45; color: var(--accent); }
+.prose p + p { margin-top: 2px; }
+@media (max-width: 520px) { .copy br, .prose br { display: none; } }

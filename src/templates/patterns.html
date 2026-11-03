@@ -5,21 +5,33 @@
 {% set meter_max = r.chance * 1.25 %}
 {% block header %}
     <h1>로또에 규칙이 있을까?</h1>
-    <p class="lede">지난 당첨번호를 보다 보면 '이 번호가 자주 나오네', '지난주 번호가 또 나왔네' 같은 규칙이 보이는 것 같아요. 그런 규칙 {{ r.rules | length }}가지를 1회부터 {{ r.draws }}회까지의 실제 기록으로 시험해 봤어요.</p>
+    <div class="copy lede">
+      <p>지난 당첨번호를 보다 보면 규칙이 보이는 것 같아요.<br>'이 번호가 자주 나오네', '지난주 번호가 또 나왔네' 하고요.</p>
+      <p>그런 규칙 {{ r.rules | length }}가지를 1~{{ r.draws }}회 실제 기록으로 시험해 봤어요.</p>
+    </div>
 {% endblock %}
 
 {% block content %}
   <section class="card" aria-labelledby="sum-h">
-    <h2 id="sum-h">결론: {% if r.rules_beating_chance %}도움이 된 규칙은 {{ r.rules_beating_chance }}가지뿐이었어요{% else %}번호 맞히는 데 도움이 된 규칙은 하나도 없었어요{% endif %}</h2>
+    <h2 id="sum-h">결론</h2>
+    <p class="verdict">{% if r.rules_beating_chance %}번호 맞히는 데 도움이 된 규칙은<br>{{ r.rules_beating_chance }}가지뿐이었어요.{% else %}번호 맞히는 데 도움이 된 규칙은<br>하나도 없었어요.{% endif %}</p>
     <div class="stats">
       {{ ui.stat("시험한 규칙", (r.rules | length) ~ "가지") }}
       {{ ui.stat("실제로 도움이 된 규칙", r.rules_beating_chance ~ "가지", accent=true) }}
-      {{ ui.stat("가장 좋던 규칙으로 골랐을 때", "평균 " ~ f2.format(r.best.test) ~ "개") }}
+      {{ ui.stat("가장 좋았던 규칙으로 골랐을 때", "평균 " ~ f2.format(r.best.test) ~ "개") }}
       {{ ui.stat("아무렇게나 골랐을 때", "평균 " ~ f2.format(r.chance) ~ "개") }}
     </div>
     <h3 class="sub">어떻게 시험했나요?</h3>
-    <p class="lede">{{ r.train_span[1] }}회까지의 기록만 보고 가장 잘 맞았던 규칙을 고른 다음, 그 규칙으로 최근 {{ test_n }}회({{ r.test_span[0] }}~{{ r.test_span[1] }}회)를 맞혀 봤어요. 답을 미리 보고 푼 게 아니라, 처음 보는 문제를 풀어 본 셈이에요. 매 회차 6개를 골라서 평균 몇 개가 당첨번호와 겹쳤는지로 비교했어요.</p>
-    <p class="lede">예전 기록에서 가장 잘 맞았던 규칙은 '{{ r.best.name }}'이었어요. 예전에는 평균 {{ f2.format(r.best.train) }}개를 맞혔는데, 최근 {{ test_n }}회에서는 {{ f2.format(r.best.test) }}개로 오히려 아무렇게나 고른 것({{ f2.format(r.chance) }}개)과 비슷하거나 못했어요.</p>
+    <ol class="copy steps">
+      <li>{{ r.train_span[1] }}회까지의 기록만 보고, 가장 잘 맞았던 규칙을 골랐어요.</li>
+      <li>그 규칙으로 최근 {{ test_n }}회({{ r.test_span[0] }}~{{ r.test_span[1] }}회)를 맞혀 봤어요.<br>답을 미리 안 보고, 처음 보는 문제를 푼 셈이에요.</li>
+      <li>매 회차 6개를 골라서, 평균 몇 개가 당첨번호와 겹쳤는지 비교했어요.</li>
+    </ol>
+    <div class="copy lede">
+      <p>예전 기록에서 1등은 '{{ r.best.name }}'이었어요.</p>
+      <p>예전에는 평균 <strong>{{ f2.format(r.best.train) }}개</strong>를 맞혔어요.<br>그런데 최근 {{ test_n }}회에서는 <strong>{{ f2.format(r.best.test) }}개</strong>였어요.</p>
+      <p>아무렇게나 골라도 {{ f2.format(r.chance) }}개는 맞히니까, 규칙을 쓴 게 오히려 손해였던 셈이에요.</p>
+    </div>
   </section>
 
   <section class="card" aria-labelledby="rules-h">
@@ -36,8 +48,16 @@
         </tbody>
       </table>
     </div>
-    <p class="note">아무렇게나 골라도 {{ test_n }}회 평균은 운에 따라 {{ f2.format(r.chance - r.noise) }}개에서 {{ f2.format(r.chance + r.noise) }}개까지 나올 수 있어요. 표에서 {{ f2.format(r.chance) }}개보다 조금 높은 파란 숫자도 모두 이 안에 있어서, 규칙이 좋았다기보다 운이 좋았던 거예요.</p>
-    <p class="note">재미있는 실험도 해 봤어요. 규칙 없이 그냥 무작위로 고르는 방법 {{ r.rules | length }}개를 똑같이 시험했더니, 그중 제일 운 좋은 방법이 예전 기록에서 {{ f2.format(r.fake_best) }}개를 맞혔어요. 진짜 규칙 1등({{ f2.format(r.best.train) }}개)과 거의 같아요. 방법을 여러 개 시험하면 우연히 잘 맞는 게 하나쯤은 꼭 나와요.</p>
+    <div class="note copy">
+      <p><strong>파란 숫자는 규칙 덕분일까요?</strong></p>
+      <p>아무렇게나 골라도 {{ test_n }}회 평균은 운에 따라<br>{{ f2.format(r.chance - r.noise) }}개에서 {{ f2.format(r.chance + r.noise) }}개까지 나올 수 있어요.</p>
+      <p>파란 숫자도 모두 이 안에 있어요.<br>규칙이 좋았다기보다 운이 좋았던 거예요.</p>
+    </div>
+    <div class="note copy">
+      <p><strong>재미있는 실험</strong></p>
+      <p>규칙 없이 무작위로 고르는 방법 {{ r.rules | length }}개를 똑같이 시험해 봤어요.<br>그중 제일 운 좋은 방법이 예전 기록에서 {{ f2.format(r.fake_best) }}개를 맞혔어요.</p>
+      <p>진짜 규칙 1등({{ f2.format(r.best.train) }}개)과 거의 같아요.<br>여러 방법을 시험하다 보면 우연히 잘 맞는 게 하나쯤은 꼭 나와요.</p>
+    </div>
   </section>
 
   {{ ui.ad_slot("afterRules") }}
@@ -47,16 +67,19 @@
     <div class="split">
       <div>
         <h3 class="sub">가장 많이 나온 번호</h3>
-        <ul class="rank-list">{% for n, c in r.counts[:5] %}<li>{{ ui.ball(n, "sm") }}<span>{{ c }}번</span></li>{% endfor %}</ul>
+        <ul class="rank-list">{% for n, c in r.counts[:5] %}<li>{{ ui.ball(n, "sm") }}<span>{{ c }}회</span></li>{% endfor %}</ul>
       </div>
       <div>
         <h3 class="sub">가장 적게 나온 번호</h3>
-        <ul class="rank-list">{% for n, c in r.counts[-5:] | reverse %}<li>{{ ui.ball(n, "sm") }}<span>{{ c }}번</span></li>{% endfor %}</ul>
+        <ul class="rank-list">{% for n, c in r.counts[-5:] | reverse %}<li>{{ ui.ball(n, "sm") }}<span>{{ c }}회</span></li>{% endfor %}</ul>
       </div>
     </div>
     {%- set most, least = r.counts[0], r.counts[-1] %}
-    <p class="lede">{{ most[0] }}번은 {{ most[1] }}번, {{ least[0] }}번은 {{ least[1] }}번 나왔어요. 차이가 커 보이지만, 컴퓨터로 가짜 추첨을 {{ r.draws }}회씩 2,000번 돌려 보면 {{ "{:.0f}".format(r.chi_p * 100) }}%는 이것보다 더 들쭉날쭉했어요.
-      {%- if r.frequency_is_random %} 즉 이 정도 차이는 그냥 우연이에요. 유독 잘 나오는 번호는 없어요.{% else %} 우연치고는 차이가 커서 계속 지켜볼 만해요.{% endif %}</p>
+    <div class="copy lede">
+      <p>{{ most[0] }}번은 {{ most[1] }}회, {{ least[0] }}번은 {{ least[1] }}회 나왔어요.<br>차이가 꽤 커 보이죠.</p>
+      <p>그런데 컴퓨터로 가짜 추첨을 {{ r.draws }}회씩 2,000번 돌려 보면<br>{{ "{:.0f}".format(r.chi_p * 100) }}%는 이것보다 더 들쭉날쭉했어요.</p>
+      <p>{% if r.frequency_is_random %}즉 이 정도 차이는 그냥 우연이에요.<br><strong>유독 잘 나오는 번호는 없어요.</strong>{% else %}우연치고는 차이가 커서 계속 지켜볼 만해요.{% endif %}</p>
+    </div>
   </section>
 
   <section class="card" aria-labelledby="repeat-h">
@@ -64,10 +87,14 @@
     <div class="table-box">
       <table>
         <thead><tr><th>지난주와 겹친 번호</th><th class="num">그런 회차 수</th></tr></thead>
-        <tbody>{% for k, c in r.repeat_hist %}<tr><td>{{ k }}개</td><td class="num">{{ c }}번</td></tr>{% endfor %}</tbody>
+        <tbody>{% for k, c in r.repeat_hist %}<tr><td>{{ k }}개</td><td class="num">{{ c }}회</td></tr>{% endfor %}</tbody>
       </table>
     </div>
-    <p class="lede">지난주 번호는 이번 주에 평균 {{ f2.format(r.repeat_mean) }}개가 다시 나왔어요. 아무 관계가 없어도 평균 {{ f2.format(r.chance) }}개는 겹치게 돼 있어서, 거의 같은 숫자예요. 지난주 결과가 이번 주에 영향을 준다고 볼 수 없어요.</p>
+    <div class="copy lede">
+      <p>지난주 번호는 이번 주에 평균 {{ f2.format(r.repeat_mean) }}개가 다시 나왔어요.</p>
+      <p>아무 관계가 없어도 평균 {{ f2.format(r.chance) }}개는 겹치게 돼 있어요.<br>거의 같은 숫자예요.</p>
+      <p><strong>지난주 결과는 이번 주에 영향을 주지 않아요.</strong></p>
+    </div>
   </section>
 
   <section class="card" aria-labelledby="shape-h">
@@ -82,14 +109,20 @@
         </tbody>
       </table>
     </div>
-    <p class="lede">'원래 나올 비율'은 45개 숫자로 만들 수 있는 모든 조합 중에서 그 모양이 차지하는 비율이에요. 홀짝이 3:3으로 섞인 조합이 원래 가장 많아서 자주 나오는 것뿐이에요. 실제로 나온 비율도 거의 같아요. 그래서 홀짝을 맞춰서 골라도 당첨 확률은 달라지지 않아요.</p>
+    <div class="copy lede">
+      <p>'원래 나올 비율'은 45개 숫자로 만들 수 있는 모든 조합 중에서<br>그 모양이 차지하는 비율이에요.</p>
+      <p>홀짝이 3:3으로 섞인 조합이 원래 가장 많아요.<br>그래서 자주 나오는 것뿐이고, 실제로 나온 비율도 거의 같아요.</p>
+      <p><strong>홀짝을 맞춰서 골라도 당첨 확률은 그대로예요.</strong></p>
+    </div>
   </section>
 
   {{ ui.ad_slot("afterShapes") }}
 
   <section class="card prose" aria-labelledby="why-h">
     <h2 id="why-h">그런데 왜 자꾸 규칙이 보일까요?</h2>
-    <p>숫자가 {{ "{:,}".format(r.draws * 6) }}개나 쌓여 있으면 어떤 모양이든 찾을 수 있어요. 구름을 보다 보면 사람 얼굴이 보이는 것과 같아요. 진짜 규칙인지는 한 가지로 알 수 있어요. <strong>규칙을 찾을 때 보지 않았던 회차에서도 맞는가.</strong> 이 페이지의 규칙은 모두 여기서 걸렸어요.</p>
-    <p>그러니 번호는 마음 가는 대로 고르셔도 돼요. <a class="link" href="{{ root }}">번호 생성기</a>로 재미 삼아 뽑아 보세요.</p>
+    <p>숫자가 {{ "{:,}".format(r.draws * 6) }}개나 쌓여 있으면 어떤 모양이든 찾을 수 있어요.<br>구름을 보다 보면 사람 얼굴이 보이는 것과 같아요.</p>
+    <p>진짜 규칙인지는 한 가지로 알 수 있어요.<br><strong>규칙을 찾을 때 보지 않았던 회차에서도 맞는가.</strong></p>
+    <p>이 페이지의 규칙은 모두 여기서 걸렸어요.</p>
+    <p>그러니 번호는 마음 가는 대로 고르셔도 돼요.<br><a class="link" href="{{ root }}">번호 생성기</a>로 재미 삼아 뽑아 보세요.</p>
   </section>
 {% endblock %}

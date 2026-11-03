@@ -241,7 +241,7 @@ def draw_stats(draws: list[Draw]) -> dict[int, DrawStats]:
         low = sum(n <= half for n in d.numbers)
         run = longest_run(d.numbers)
         result[d.no] = DrawStats(sum(d.numbers), odd, PICK_COUNT - odd, low, PICK_COUNT - low,
-                                 f"{run}개 연속" if run > 1 else "없음", rows)
+                                 f"{run}개 이어짐" if run > 1 else "없음", rows)
     return result
 
 
@@ -270,20 +270,36 @@ class Summary:
 
     @property
     def description(self) -> str:
-        return (f"역대 {self.total:,}회 로또 6/45 당첨번호를 분석해 핫넘버·콜드넘버·동반출현 등 "
-                f"{self.strategy_count}가지 알고리즘으로 번호를 뽑고, 백테스트로 실제 적중률을 비교해요. "
+        return (f"로또 6/45 당첨번호 {self.total:,}회치를 분석해서 자주 나온 번호, 오래 안 나온 번호 등 "
+                f"{self.strategy_count}가지 방법으로 번호를 뽑아 드려요. 지난 회차로 직접 시험한 결과도 함께 보여 드려요. "
                 f"최신 {self.latest_text}.")
 
     @property
     def sentence(self) -> str:
-        return (f"최신 {self.latest.no}회({date_ko(self.latest.date)}) 당첨번호는 {self.join(self.latest.numbers)}, "
-                f"보너스 {self.latest.bonus}번이에요. 1회부터 {self.latest.no}회까지 가장 많이 나온 번호는 "
+        return (f"최신 {self.latest.no}회({date_ko(self.latest.date)}) 당첨번호는 {self.join(self.latest.numbers)}이고 "
+                f"보너스 번호는 {self.latest.bonus}번이에요. 1회부터 {self.latest.no}회까지 가장 많이 나온 번호는 "
                 f"{self.join(self.hot)}번이에요.")
 
 
 def date_ko(iso: str) -> str:
     y, m, d = iso.split("-")
     return f"{y}년 {int(m)}월 {int(d)}일"
+
+
+def date_dot(iso: str) -> str:
+    """Compact date for tables and labels: 2026.10.31."""
+    return iso.replace("-", ".")
+
+
+HANGUL_START, HANGUL_COUNT, JONG_COUNT = 0xAC00, 11172, 28
+
+
+def josa(word: str, pair: str) -> str:
+    """Attach the right particle: josa("초과분", "은/는") -> "초과분은". pair is "with-batchim/without"."""
+    with_final, without_final = pair.split("/")
+    code = ord(word[-1]) - HANGUL_START
+    has_final = 0 <= code < HANGUL_COUNT and code % JONG_COUNT != 0
+    return word + (with_final if has_final else without_final)
 
 
 def draw_path(draw: Draw) -> str:
@@ -375,9 +391,9 @@ class SitePages:
             is_index = i == 0
             title = (f"로또 회차별 당첨번호 전체 조회 (1~{latest.no}회)" if is_index
                      else f"{year}년 로또 당첨번호 ({first.no}~{last.no}회)")
-            description = (f"로또 6/45 {year}년 {first.no}회부터 {last.no}회까지 당첨번호와 1등 당첨금, 당첨자 수예요. "
-                           + (f"최신 {self.summary.latest_text}. 2002년 1회부터 연도별로 볼 수 있어요." if is_index else
-                              "회차를 누르면 등수별 당첨금과 번호 분석을 볼 수 있어요."))
+            description = (f"{year}년 로또 {first.no}회부터 {last.no}회까지의 당첨번호, 1등 당첨금, 당첨자 수를 모았어요. "
+                           + (f"최신 {self.summary.latest_text}. 2002년 1회부터 연도별로 찾아볼 수 있어요." if is_index else
+                              "회차를 누르면 등수별 당첨금과 번호 분석이 나와요."))
             chunks = [draws[k:k + ROWS_PER_AD] for k in range(0, len(draws), ROWS_PER_AD)]
             pages.append(Page(links[i]["path"], "draws.html", "draws", SITE.title(title), description, ["common.js"],
                               {"year": year, "chunks": chunks, "year_links": links, "heading": title, "index_path": NAV_PATH["draws"],
@@ -393,13 +409,13 @@ class SitePages:
             first_tax = compute_tax(first.prize)
             ranks = [{**rule, "prize": div.prize, "winners": div.winners}
                      for rule, div in zip(RULES["ranks"], d.divisions)]
-            prize_text = (f"1등 {first.winners}명, 1인당 {won(first.prize)}(실수령 {won(first_tax.net)})"
-                          if first.winners else "1등 당첨자 없음(이월)")
+            prize_text = (f"1등은 {first.winners}명이고 1인당 {won(first.prize)}(실수령 {won(first_tax.net)})을 받아요"
+                          if first.winners else "1등 당첨자가 없어서 당첨금이 다음 회차로 넘어갔어요")
             pages.append(Page(
                 draw_path(d), "draw.html", "draws",
-                SITE.title(f"로또 {d.no}회 당첨번호 ({d.date})"),
-                f"로또 {d.no}회({date_ko(d.date)}) 당첨번호는 {Summary.join(d.numbers)}, 보너스 {d.bonus}. "
-                f"{prize_text}. 등수별 당첨금과 번호 분석을 확인하세요.",
+                SITE.title(f"로또 {d.no}회 당첨번호 ({date_dot(d.date)})"),
+                f"로또 {d.no}회({date_ko(d.date)}) 당첨번호는 {Summary.join(d.numbers)}이고 보너스 번호는 {d.bonus}번이에요. "
+                f"{prize_text}. 등수별 당첨금과 번호 분석도 볼 수 있어요.",
                 ["common.js"],
                 {"d": d, "first": first, "first_tax": first_tax, "ranks": ranks, "stats": stats[d.no],
                  "prev": self.draws[i - 1] if i else None, "next": self.draws[i + 1] if i + 1 < len(self.draws) else None},
@@ -426,8 +442,8 @@ class SitePages:
                    {"label": "10억 원", "value": 10 ** 9}, {"label": "3억 원", "value": 3 * 10 ** 8}]
         return Page(NAV_PATH["calculator"], "calculator.html", "calculator",
                     SITE.title("로또 당첨금 실수령액 계산기 · 세금 자동 계산"),
-                    f"로또 당첨금을 넣으면 세금과 실수령액을 바로 계산해요. {latest.no}회 1등 {won(latest.first.prize)}의 "
-                    f"실수령액은 {won(compute_tax(latest.first.prize).net)}이에요. 3억 원 이하 22%, 초과분 33% 기준.",
+                    f"로또 당첨금을 넣으면 세금과 실수령액을 바로 계산해요. {latest.no}회 1등 당첨금 {won(latest.first.prize)}을 받으면 "
+                    f"실제로 {won(compute_tax(latest.first.prize).net)}이 손에 들어와요. 세금은 3억 원까지 22%, 넘는 부분은 33%예요.",
                     ["common.js", "calculator.js"],
                     {"presets": presets, "record": record, "latest_first": latest.first,
                      "latest_first_tax": compute_tax(latest.first.prize)},
@@ -437,8 +453,8 @@ class SitePages:
         latest = self.summary.latest
         return Page(NAV_PATH["check"], "check.html", "check",
                     SITE.title("내 로또 번호 역대 당첨 확인 · 1회부터 몇 등?"),
-                    f"번호 6개를 고르면 1회부터 {latest.no}회까지 매주 샀을 때 몇 등에 몇 번 당첨됐는지, "
-                    "쓴 돈과 받은 당첨금을 계산해요.",
+                    f"번호 6개를 고르면 1회부터 {latest.no}회까지 매주 그 번호로 샀을 때 몇 등에 몇 번 당첨됐을지 "
+                    "알려 드려요. 쓴 돈과 받은 돈도 함께 계산해요.",
                     ["common.js", "check.js"],
                     {"draws_payload": [d.payload() for d in self.draws], "max_number": MAX_NUMBER},
                     "WebApplication", self.latest_date)
@@ -453,7 +469,7 @@ class SitePages:
         return Page(NAV_PATH["pension"], "pension.html", "pension",
                     SITE.title("연금복권720+ 번호 생성기 · 등수별 당첨금"),
                     f"연금복권720+ 조와 6자리 번호를 무작위로 뽑아요. 1등은 매월 {won(first['monthly'])}씩 "
-                    f"{first['months'] // 12}년, 세후 매월 {won(ranks[0]['net'])}이에요. 등수별 당첨금과 구매 방법 정리.",
+                    f"{first['months'] // 12}년 동안 받고, 세금을 떼면 매월 {won(ranks[0]['net'])}이에요. 등수별 당첨금과 구매 방법도 정리했어요.",
                     ["common.js", "pension.js"], {"pension_ranks": ranks}, "WebApplication", self.latest_date)
 
 
@@ -538,7 +554,8 @@ class SiteBuilder:
         self.env = Environment(loader=FileSystemLoader(TEMPLATES), autoescape=True, undefined=StrictUndefined,
                                trim_blocks=True, lstrip_blocks=True)
         self.env.globals.update(site=SITE, nav=NAV, rules=RULES, summary=self.summary,
-                                ball_band=TOKENS.ball_band, draw_path=draw_path, date_ko=date_ko, won_eok=won_eok)
+                                ball_band=TOKENS.ball_band, draw_path=draw_path, date_ko=date_ko, date_dot=date_dot, won_eok=won_eok)
+        self.env.filters["josa"] = josa
         self.fonts = FontSubset(FONT_URL, FONT_CACHE)
         self.version = self.source_hash()
 

@@ -1,7 +1,7 @@
 {% extends "layout.html" %}
 {% block header %}
     <h1>로또 당첨금 실수령액 계산기</h1>
-    <p class="lede">당첨금을 넣으면 세금과 실제로 받는 금액을 바로 계산해요. {{ ui.won(rules.tax.taxFreeLimit) }} 이하는 세금이 없고{% for b in rules.tax.brackets %}, {{ b.range }}는 {{ (b.rate * 100) | round | int }}%{% endfor %}를 떼요.</p>
+    <p class="lede">당첨금을 넣으면 세금과 실제로 받는 돈을 바로 계산해요.<br>{{ ui.won(rules.tax.taxFreeLimit) }} 이하는 세금이 없고{% for b in rules.tax.brackets %}, {{ b.range | josa("은/는") }} {{ (b.rate * 100) | round | int }}%{% endfor %}를 떼요.</p>
 {% endblock %}
 
 {% block content %}
@@ -33,14 +33,15 @@
   <section class="card prose" aria-labelledby="rule-h">
     <h2 id="rule-h">로또 당첨금 세금 기준</h2>
     <dl>
-      <dt>{{ ui.won(rules.tax.taxFreeLimit) }} 이하</dt><dd>세금이 없어요. 4등과 5등 당첨금은 보통 이 범위라 전액 그대로 받아요.</dd>
+      <dt>{{ ui.won(rules.tax.taxFreeLimit) }} 이하</dt><dd>세금이 없어요. 4등과 5등은 보통 이 금액 안이라 그대로 다 받아요.</dd>
       {%- for b in rules.tax.brackets %}
       <dt>{{ b.range }}</dt><dd>{{ b.detail }}, 합계 {{ (b.rate * 100) | round | int }}%를 떼요.</dd>
       {%- endfor %}
-      <dt>구입 비용 공제</dt><dd>세금을 계산할 때 복권 1장 값({{ ui.won(rules.tax.ticketPrice) }})을 당첨금에서 먼저 빼요.</dd>
+      <dt>복권값 빼기</dt><dd>세금을 매기기 전에 복권 한 장 값({{ ui.won(rules.tax.ticketPrice) }})을 당첨금에서 먼저 빼요.</dd>
     </dl>
-    <p>{{ summary.latest.no }}회 1등 당첨금 {{ ui.won(latest_first.prize) }}을 받으면 세금 {{ ui.won(latest_first_tax.tax) }}을 내고 {{ ui.won(latest_first_tax.net) }}을 받아요. 역대 최고 1등 당첨금은 {{ record.no }}회의 {{ ui.won(record.first.prize) }}이에요.</p>
-    <p>실제 세금은 당첨금을 받는 시점의 세법을 따라요. 큰 금액은 지급 은행에서 최종 금액을 확인하세요.</p>
+    <p>예를 들어 {{ summary.latest.no }}회 1등 당첨금 {{ ui.won(latest_first.prize) }}을 받으면,<br>세금 {{ ui.won(latest_first_tax.tax) }}을 내고 {{ ui.won(latest_first_tax.net) }}을 받아요.</p>
+    <p>지금까지 가장 큰 1등 당첨금은 {{ record.no }}회의 {{ ui.won(record.first.prize) }}이에요.</p>
+    <p>실제 세금은 당첨금을 받는 날의 세법을 따라요.<br>금액이 크다면 당첨금을 주는 은행에서 꼭 다시 확인하세요.</p>
   </section>
 
   {{ ui.ad_slot("afterRules") }}
