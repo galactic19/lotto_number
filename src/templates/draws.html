@@ -1,27 +1,44 @@
 {% extends "layout.html" %}
 {% block header %}
-    <h1>로또 회차별 당첨번호</h1>
-    <p class="lede">1회부터 {{ summary.latest.no }}회까지 전체 당첨번호와 1등 당첨금이에요. 회차를 누르면 등수별 당첨금과 번호 분석을 볼 수 있어요.</p>
+    {%- if page.path != index_path %}
+    <nav class="crumbs" aria-label="현재 위치"><a href="{{ root }}">홈</a><span>›</span><a href="{{ root }}{{ index_path }}">당첨번호</a><span>›</span><span>{{ year }}년</span></nav>
+    {%- endif %}
+    <h1>{{ heading }}</h1>
+    <p class="lede">{{ page.description }}</p>
+    <nav class="chips year-links" aria-label="연도 선택">
+      {%- for link in year_links %}
+      <a class="chip" href="{{ root }}{{ link.path }}"{% if link.year == year %} aria-current="page"{% endif %}>{{ link.year }}</a>
+      {%- endfor %}
+    </nav>
 {% endblock %}
 
 {% block content %}
-  {%- for year in years %}
-  <section class="card" aria-labelledby="y{{ year.year }}">
-    <div class="sec-head"><h2 id="y{{ year.year }}">{{ year.year }}년</h2><span class="eyebrow">{{ year.draws | length }}회차</span></div>
+  <section class="card" aria-labelledby="list-h">
+    <div class="sec-head"><h2 id="list-h">{{ year }}년 당첨번호</h2><span class="eyebrow">{{ chunks | map("length") | sum }}회차</span></div>
+    {%- for chunk in chunks %}
     <div class="table-box">
-      <table>
+      <table class="draw-list">
+        {%- if loop.first %}
         <thead><tr><th>회차</th><th>날짜</th><th>당첨번호</th><th class="num">1등 당첨금</th><th class="num">1등</th></tr></thead>
+        {%- endif %}
         <tbody>
-          {%- for d in year.draws %}
+          {%- for d in chunk %}
           <tr><td><a class="link" href="{{ root }}{{ draw_path(d) }}">{{ d.no }}회</a></td><td>{{ d.date }}</td><td>{{ ui.draw_balls(d, "sm") }}</td>
             <td class="num">{% if d.first.winners %}{{ ui.won(d.first.prize) }}{% else %}이월{% endif %}</td><td class="num">{{ d.first.winners }}명</td></tr>
           {%- endfor %}
         </tbody>
       </table>
     </div>
+    {%- if not loop.last %}
+    {{ ui.ad_slot("inList") }}
+    {%- endif %}
+    {%- endfor %}
   </section>
-  {%- if loop.first %}
-  {{ ui.ad_slot("afterLatestYear") }}
-  {%- endif %}
-  {%- endfor %}
+
+  <nav class="pager" aria-label="다른 연도">
+    {%- if newer %}<a href="{{ root }}{{ newer.path }}">← {{ newer.year }}년</a>{% else %}<span></span>{% endif %}
+    {%- if older %}<a href="{{ root }}{{ older.path }}">{{ older.year }}년 →</a>{% endif %}
+  </nav>
+
+  {{ ui.ad_slot("afterList") }}
 {% endblock %}

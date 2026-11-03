@@ -207,3 +207,15 @@ tr.hit td { color: var(--ink); }
 .pick[aria-pressed="true"] { background: var(--c); border-color: var(--c); color: var(--ball-text); }
 @media (max-width: 520px) { .picker { grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; } }
 h3.sub { font-size: 1rem; font-weight: 700; margin: 0; }
+
+/* Year chips on draw lists */
+.year-links { flex-wrap: wrap; }
+.year-links .chip { text-decoration: none; font-variant-numeric: tabular-nums; }
+.year-links .chip[aria-current="page"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.card .ad-slot { padding-block: 8px; }
+/* Draw list is split into several tables around banners; fixed columns keep them aligned */
+.draw-list { table-layout: fixed; min-width: 600px; }
+.draw-list th:nth-child(1), .draw-list td:nth-child(1) { width: 76px; }
+.draw-list th:nth-child(2), .draw-list td:nth-child(2) { width: 104px; }
+.draw-list th:nth-child(4), .draw-list td:nth-child(4) { width: 150px; }
+.draw-list th:nth-child(5), .draw-list td:nth-child(5) { width: 56px; }

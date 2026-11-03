@@ -80,6 +80,8 @@ NAV = [
     NavItem("pension", "연금복권720+", "pension/"),
 ]
 NAV_PATH = {item.key: item.path for item in NAV}
+YEARS_PATH = f"{NAV_PATH['draws']}years/"
+ROWS_PER_AD = 15          # draws-list tables get a banner after every this many rows
 
 
 # ───────── Shared source values (read from src so CSS/JS stay the single source of truth) ─────────
@@ -352,22 +354,33 @@ class SitePages:
         self.latest_date = summary.latest.date
 
     def all(self) -> list[Page]:
-        return [self.home(), self.draws_index(), *self.draw_pages(), self.calculator(), self.check(), self.pension()]
+        return [self.home(), *self.year_pages(), *self.draw_pages(), self.calculator(), self.check(), self.pension()]
 
     def home(self) -> Page:
         return Page("", "home.html", "home", SITE.title("로또 번호 생성기 · 역대 당첨번호 분석 알고리즘"),
                     self.summary.description, ["common.js", "home.js"],
                     {"draws_payload": [d.payload() for d in self.draws]}, "WebApplication", self.latest_date)
 
-    def draws_index(self) -> Page:
-        years = [{"year": year, "draws": list(group)}
-                 for year, group in groupby(reversed(self.draws), key=lambda d: d.date[:4])]
+    def year_pages(self) -> list[Page]:
+        """One list page per year (newest first). The latest year lives at /draws/ so the index stays short."""
+        years = [(year, list(group)) for year, group in groupby(reversed(self.draws), key=lambda d: d.date[:4])]
+        links = [{"year": year, "path": NAV_PATH["draws"] if i == 0 else f"{YEARS_PATH}{year}/"} for i, (year, _) in enumerate(years)]
         latest = self.summary.latest
-        return Page(NAV_PATH["draws"], "draws.html", "draws",
-                    SITE.title(f"로또 회차별 당첨번호 전체 조회 (1~{latest.no}회)"),
-                    f"로또 6/45 1회부터 {latest.no}회까지 전체 당첨번호와 1등 당첨금, 당첨자 수를 연도별로 정리했어요. "
-                    f"최신 {self.summary.latest_text}.",
-                    ["common.js"], {"years": years}, "CollectionPage", self.latest_date)
+        pages = []
+        for i, (year, draws) in enumerate(years):
+            first, last = draws[-1], draws[0]
+            is_index = i == 0
+            title = (f"로또 회차별 당첨번호 전체 조회 (1~{latest.no}회)" if is_index
+                     else f"{year}년 로또 당첨번호 ({first.no}~{last.no}회)")
+            description = (f"로또 6/45 {year}년 {first.no}회부터 {last.no}회까지 당첨번호와 1등 당첨금, 당첨자 수예요. "
+                           + (f"최신 {self.summary.latest_text}. 2002년 1회부터 연도별로 볼 수 있어요." if is_index else
+                              "회차를 누르면 등수별 당첨금과 번호 분석을 볼 수 있어요."))
+            chunks = [draws[k:k + ROWS_PER_AD] for k in range(0, len(draws), ROWS_PER_AD)]
+            pages.append(Page(links[i]["path"], "draws.html", "draws", SITE.title(title), description, ["common.js"],
+                              {"year": year, "chunks": chunks, "year_links": links, "heading": title, "index_path": NAV_PATH["draws"],
+                               "newer": links[i - 1] if i else None, "older": links[i + 1] if i + 1 < len(links) else None},
+                              "CollectionPage", last.date))
+        return pages
 
     def draw_pages(self) -> list[Page]:
         stats = draw_stats(self.draws)
