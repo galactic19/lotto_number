@@ -43,7 +43,10 @@
   <header>
     <div class="topbar">
       <a class="eyebrow brand" href="{{ root }}">{{ site.name }} · 동행복권 로또 6/45</a>
-      <div class="seg raised" id="theme-seg" role="group" aria-label="화면 테마"></div>
+      <div class="topbar-actions">
+        <button type="button" class="chip share-btn" data-share data-share-text="{{ page.description }}">공유</button>
+        <div class="seg raised" id="theme-seg" role="group" aria-label="화면 테마"></div>
+      </div>
     </div>
     {%- if not inline %}
     <nav class="site-nav" aria-label="사이트 메뉴">

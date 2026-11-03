@@ -247,6 +247,7 @@ class App {
     $("dec").addEventListener("click", () => setCount(this.count - 1));
     $("inc").addEventListener("click", () => setCount(this.count + 1));
     $("go").addEventListener("click", () => this.generate());
+    Share.bind($("share-result"), () => ({ text: `${document.title.split(" | ").pop()}에서 뽑은 로또 번호\n${ticketLines(this.last)}`, url: Share.pageUrl("") }));
   }
   generate() {
     const ids = [...this.selected];
@@ -254,8 +255,9 @@ class App {
     const tickets = Array.from({ length: this.count }, (_, i) => {
       const s = byId[ids[i % ids.length]];
       const t = s.generate(this.history, this.rng, filter);
-      return { nodes: t.map((n) => [ball(n), n]), why: el("p", { class: "why pending", text: `${s.name} · ${s.explain(this.history, t)}` }) };
+      return { values: t, note: s.name, nodes: t.map((n) => [ball(n), n]), why: el("p", { class: "why pending", text: `${s.name} · ${s.explain(this.history, t)}` }) };
     });
+    this.last = tickets;
     $("tickets").replaceChildren(...tickets.map(({ nodes, why }, i) => el("div", { class: "ticket" }, [
       el("span", { class: "slot", text: String.fromCharCode(65 + i) }),
       el("div", { class: "balls" }, nodes.map(([node]) => node)),

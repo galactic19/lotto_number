@@ -16,6 +16,7 @@ class PensionPage {
     $("dec").addEventListener("click", () => setCount(this.count - 1));
     $("inc").addEventListener("click", () => setCount(this.count + 1));
     $("go").addEventListener("click", () => this.generate());
+    Share.bind($("share-result"), () => ({ text: `연금복권720+ 추천 번호\n${ticketLines(this.last)}`, url: Share.pageUrl("") }));
     this.generate();
   }
   static digits() { return Array.from({ length: PENSION.digits }, () => randomOf(PENSION.digitPool)); }
@@ -29,7 +30,9 @@ class PensionPage {
     }).flat();
   }
   generate() {
-    const rows = this.tickets().map(({ group, digits }) => ({
+    const tickets = this.tickets();
+    this.last = tickets.map(({ group, digits }) => ({ values: [`${group}조`, digits.join("")] }));
+    const rows = tickets.map(({ group, digits }) => ({
       group: [ball(group, PENSION.groupColor), group],
       digits: digits.map((d, i) => [ball(d, PENSION.digitColor(i)), d]),
     }));

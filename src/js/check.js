@@ -39,7 +39,7 @@ class CheckPage {
     $("random").addEventListener("click", () => this.set([...NUMBERS].sort(() => Math.random() - 0.5).slice(0, SITE.pickCount)));
     $("clear").addEventListener("click", () => this.set([]));
     $("check").addEventListener("click", () => this.check());
-    $("share").addEventListener("click", () => this.share());
+    Share.bind($("share-result"), () => this.shareData());
     const fromUrl = (new URLSearchParams(location.search).get(CHECK.param) || "").split(",").map(Number).filter((n) => NUMBERS.includes(n));
     this.set(fromUrl);
     if (this.ready) this.check();
@@ -62,7 +62,7 @@ class CheckPage {
   }
   check() {
     const ticket = this.ticket;
-    const r = this.checker.run(ticket);
+    const r = this.result = this.checker.run(ticket);
     history.replaceState(null, "", `?${CHECK.param}=${ticket.join(",")}`);
     $("result").hidden = false;
     $("result-balls").replaceChildren(...ticket.map((n) => ball(n)));
@@ -86,11 +86,11 @@ class CheckPage {
     );
     $("result").scrollIntoView({ behavior: BallReel.reduced ? "auto" : "smooth", block: "start" });
   }
-  share() {
-    const status = $("share-status");
-    navigator.clipboard.writeText(location.href)
-      .then(() => (status.textContent = "링크를 복사했어요."))
-      .catch(() => (status.textContent = location.href));
+  shareData() {
+    const r = this.result;
+    const wins = r.counts.reduce((a, b) => a + b, 0);
+    const best = RULES.ranks.find((_, i) => r.counts[i] > 0);
+    return { text: `내 로또 번호 ${this.ticket.join(" ")}로 1회부터 매주 샀다면?\n당첨 ${wins}회${best ? ` (최고 ${best.name})` : ""}, 쓴 돈 ${won(r.spent)}, 받은 돈 ${won(r.prize)}` };
   }
 }
 

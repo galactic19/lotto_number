@@ -1,7 +1,15 @@
-/* Prize calculator: tax rules come from RULES.tax via the shared Tax helper. */
+/* Prize calculator: tax rules come from RULES.tax via the shared Tax helper. ?amount= reopens a shared result. */
+const CALC = Object.freeze({ param: "amount" });
+
 class Calculator {
   constructor() {
     this.input = $("amount");
+    const shared = Number(new URLSearchParams(location.search).get(CALC.param));
+    if (shared > 0) this.input.value = shared.toLocaleString("ko-KR");
+    Share.bind($("share-result"), () => {
+      const r = Tax.compute(this.amount);
+      return { text: `로또 당첨금 ${won(r.prize)}의 실수령액은 ${won(r.net)} (세금 ${won(r.tax)})`, url: Share.pageUrl(`?${CALC.param}=${r.prize}`) };
+    });
     this.input.addEventListener("input", () => this.update());
     $("presets").addEventListener("click", (e) => {
       const value = e.target.closest("[data-value]")?.dataset.value;

@@ -4,6 +4,11 @@ const SITE = Object.freeze({
   pickCount: 6,
   ballGroups: [10, 20, 30, 40, 45],             // upper bound of each official colour band
   themes: [{ label: "시스템", value: "system" }, { label: "라이트", value: "light" }, { label: "다크", value: "dark" }],
+  share: {
+    copied: "공유할 내용과 링크를 복사했어요. 카톡이나 메신저에 붙여넣으세요.",
+    failed: "복사하지 못했어요. 주소창의 링크를 직접 복사해 주세요.",
+    toastMs: 2800,
+  },
   roll: { baseMs: 900, perBallMs: 150, perTicketMs: 120, baseCells: 14, cellsPerBall: 3,
     easing: "cubic-bezier(.12, .8, .22, 1.04)", blurPx: 1.2, sharpAt: 0.55 },
   /* Fill in the IDs, then rebuild. Open any page with #ad-preview to see the slots. */
@@ -93,6 +98,41 @@ function renderSeg(containerId, options, isActive, onSelect) {
   render();
 }
 
+/* ───────── Sharing: the phone's share sheet when available, otherwise copy to clipboard ───────── */
+class Toast {
+  static timer = 0;
+  static show(message) {
+    let node = $("toast");
+    if (!node) document.body.append(node = el("div", { id: "toast", class: "toast", role: "status", "aria-live": "polite" }));
+    node.textContent = message;
+    node.classList.add("on");
+    clearTimeout(Toast.timer);
+    Toast.timer = setTimeout(() => node.classList.remove("on"), SITE.share.toastMs);
+  }
+}
+class Share {
+  /** Page address without the hash, so shared links never carry preview flags like #ad-preview. */
+  static pageUrl(search = location.search) { return `${location.origin}${location.pathname}${search}`; }
+  static async send({ title = document.title, text = "", url = Share.pageUrl() } = {}) {
+    if (navigator.share) {
+      try { return await navigator.share({ title, text, url }); }
+      catch (e) { if (e.name === "AbortError") return; }
+    }
+    try {
+      await navigator.clipboard.writeText([text, url].filter(Boolean).join("\n"));
+      Toast.show(SITE.share.copied);
+    } catch {
+      Toast.show(SITE.share.failed);
+    }
+  }
+  /** Wires a button; `getData` builds { title?, text?, url? } at click time. */
+  static bind(button, getData) { button?.addEventListener("click", () => Share.send(getData())); }
+  /** Buttons marked data-share share the current page with their data-share-text. */
+  static bindStatic() { document.querySelectorAll("[data-share]").forEach((b) => Share.bind(b, () => ({ text: b.dataset.shareText }))); }
+}
+/** Ticket lines for share text: "A  1 7 13 22 34 45 · 핫넘버". */
+const ticketLines = (tickets) => tickets.map((t, i) => `${String.fromCharCode(65 + i)}  ${t.values.join(" ")}${t.note ? ` · ${t.note}` : ""}`).join("\n");
+
 /* ───────── Theme (system / light / dark), remembered per browser ───────── */
 class ThemeStore {
   static key = document.querySelector('meta[name="theme-storage-key"]').content;
@@ -178,6 +218,7 @@ class AdManager {
 
 ThemeStore.restore();
 ThemeStore.mountToggle("theme-seg");
+Share.bindStatic();
 AdManager.mount();
 
 /* ───────── Prize tax (rules in src/rules.json, mirrored by scripts/build.py for static pages) ───────── */
