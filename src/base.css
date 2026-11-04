@@ -260,3 +260,6 @@ h3.sub { font-size: 1rem; font-weight: 700; margin: 0; }
 .verdict { font-size: 1.3rem; font-weight: 800; line-height: 1.45; color: var(--accent); }
 .prose p + p { margin-top: 2px; }
 @media (max-width: 520px) { .copy br, .prose br { display: none; } }
+
+/* Second heading inside a page header (e.g. the draw index under "이번 주 로또 당첨번호") */
+h2.sub-title { font-size: 1.2rem; margin-top: 12px; }

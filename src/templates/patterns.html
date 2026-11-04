@@ -4,7 +4,7 @@
 {% set test_n = r.test_span[1] - r.test_span[0] + 1 %}
 {% set meter_max = r.chance * 1.25 %}
 {% block header %}
-    <h1>로또에 규칙이 있을까?</h1>
+    <h1>로또 패턴 분석: 당첨번호에 규칙이 있을까?</h1>
     <div class="copy lede">
       <p>지난 당첨번호를 보다 보면 규칙이 보이는 것 같아요.<br>'이 번호가 자주 나오네', '지난주 번호가 또 나왔네' 하고요.</p>
       <p>그런 규칙 {{ r.rules | length }}가지를 1~{{ r.draws }}회 실제 기록으로 시험해 봤어요.</p>

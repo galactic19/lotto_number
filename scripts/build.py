@@ -376,7 +376,7 @@ class SitePages:
         return [self.home(), *self.year_pages(), *self.draw_pages(), self.patterns(), self.calculator(), self.check(), self.pension()]
 
     def home(self) -> Page:
-        return Page("", "home.html", "home", SITE.title("로또 번호 생성기 · 역대 당첨번호 분석 알고리즘"),
+        return Page("", "home.html", "home", SITE.title("로또 번호 생성기 · 당첨번호 분석으로 고르는 로또 번호 추천"),
                     self.summary.description, ["common.js", "home.js"],
                     {"draws_payload": [d.payload() for d in self.draws]}, "WebApplication", self.latest_date)
 
@@ -389,14 +389,17 @@ class SitePages:
         for i, (year, draws) in enumerate(years):
             first, last = draws[-1], draws[0]
             is_index = i == 0
-            title = (f"로또 회차별 당첨번호 전체 조회 (1~{latest.no}회)" if is_index
+            title = (f"이번 주 로또 당첨번호 {latest.no}회 · 회차별 당첨번호 전체 조회" if is_index
                      else f"{year}년 로또 당첨번호 ({first.no}~{last.no}회)")
-            description = (f"{year}년 로또 {first.no}회부터 {last.no}회까지의 당첨번호, 1등 당첨금, 당첨자 수를 모았어요. "
-                           + (f"최신 {self.summary.latest_text}. 2002년 1회부터 연도별로 찾아볼 수 있어요." if is_index else
-                              "회차를 누르면 등수별 당첨금과 번호 분석이 나와요."))
+            description = (f"이번 주 로또 {latest.no}회({date_ko(latest.date)}) 당첨번호는 {Summary.join(latest.numbers)}이고 "
+                           f"보너스 번호는 {latest.bonus}번이에요. 1회부터 모든 회차의 당첨번호와 1등 당첨금을 연도별로 찾아볼 수 있어요."
+                           if is_index else
+                           f"{year}년 로또 {first.no}회부터 {last.no}회까지의 당첨번호, 1등 당첨금, 당첨자 수를 모았어요. "
+                           "회차를 누르면 등수별 당첨금과 번호 분석이 나와요.")
             chunks = [draws[k:k + ROWS_PER_AD] for k in range(0, len(draws), ROWS_PER_AD)]
             pages.append(Page(links[i]["path"], "draws.html", "draws", SITE.title(title), description, ["common.js"],
                               {"year": year, "chunks": chunks, "year_links": links, "heading": title, "index_path": NAV_PATH["draws"],
+                               "is_index": is_index, "latest": latest, "latest_tax": compute_tax(latest.first.prize),
                                "newer": links[i - 1] if i else None, "older": links[i + 1] if i + 1 < len(links) else None},
                               "CollectionPage", last.date))
         return pages

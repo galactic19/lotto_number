@@ -1,7 +1,7 @@
 {% extends "layout.html" %}
 {% block header %}
-    <h1>로또 연구소</h1>
-    <p class="lede">지금까지 나온 당첨번호 {{ "{:,}".format(summary.total) }}회치를 분석해서 <span id="strat-count"></span>가지 방법으로 번호를 뽑아요.<br>각 방법이 지난 회차에서 실제로 얼마나 맞혔는지도 아래에서 볼 수 있어요.</p>
+    <h1>로또 번호 생성기</h1>
+    <p class="lede">지금까지 나온 당첨번호 {{ "{:,}".format(summary.total) }}회치를 분석해서 <span id="strat-count"></span>가지 방법으로 로또 번호를 추천해 드려요.<br>각 방법이 지난 회차에서 실제로 얼마나 맞혔는지도 아래에서 볼 수 있어요.</p>
     <div class="latest">
       {% if inline %}<span class="eyebrow">{% else %}<a class="eyebrow brand" href="{{ root }}{{ draw_path(summary.latest) }}">{% endif %}최신 {{ summary.latest.no }}회 · {{ date_dot(summary.latest.date) }}{% if inline %}</span>{% else %}</a>{% endif %}
       {{ ui.draw_balls(summary.latest) }}
