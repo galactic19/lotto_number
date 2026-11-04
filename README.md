@@ -2,7 +2,7 @@
 
 로또 6/45 데이터 사이트. 역대 당첨번호 전체를 분석하는 번호 생성기와 회차별 당첨번호, 실수령액 계산기, 내 번호 역대 당첨 확인, 연금복권720+ 생성기를 제공합니다.
 
-사이트: https://galactic19.github.io/lotto_number/
+사이트: https://lottelab.app/ (도메인은 `scripts/build.py`의 `Site.domain`)
 
 ## 페이지
 

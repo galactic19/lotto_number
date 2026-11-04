@@ -51,13 +51,17 @@ FONT_FILE = "pretendard.woff2"
 
 @dataclass(frozen=True)
 class Site:
-    url: str = "https://galactic19.github.io/lotto_number/"
+    domain: str = "lottelab.app"          # custom domain; GitHub Pages serves it at the root over HTTPS
     name: str = "로또 연구소"
     locale: str = "ko_KR"
     lang: str = "ko"
     og_image: str = "og.png"
     og_size: tuple[int, int] = (1200, 630)
     theme_key: str = "lotto-lab-theme"
+
+    @property
+    def url(self) -> str:
+        return f"https://{self.domain}/"
 
     def absolute(self, path: str = "") -> str:
         return self.url + path
@@ -543,6 +547,11 @@ class OgImage:
         img.save(out, optimize=True)
 
 
+def robots() -> str:
+    """Allow everything and point crawlers at the sitemap (only honoured at a domain root)."""
+    return f"User-agent: *\nAllow: /\n\nSitemap: {SITE.absolute('sitemap.xml')}\n"
+
+
 def sitemap(pages: list[Page]) -> str:
     urls = "\n".join(f"  <url><loc>{p.url}</loc><lastmod>{p.lastmod}</lastmod></url>" for p in pages)
     return ('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
@@ -596,6 +605,8 @@ class SiteBuilder:
         for path, html in html_by_path.items():
             self.write(f"{path}index.html", html)
         self.write("sitemap.xml", sitemap(pages))
+        self.write("robots.txt", robots())
+        self.write("CNAME", f"{SITE.domain}\n")
         OgImage(self.summary, self.fonts.path()).render(OUT / SITE.og_image)
 
         inline_css = FontSubset.face(f"data:font/woff2;base64,{base64.b64encode(font).decode()}") + css
