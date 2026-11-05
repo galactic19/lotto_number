@@ -17,6 +17,16 @@
 
 {% macro won(n) -%}{{ "{:,}".format(n) }}원{%- endmacro %}
 
+{#- Question-and-answer block: each answer is a self-contained sentence that can be quoted on its own. -#}
+{% macro faq(items, heading="자주 묻는 질문") -%}
+<section class="card faq" aria-labelledby="faq-h">
+  <h2 id="faq-h">{{ heading }}</h2>
+  {%- for q, a in items %}
+  <div class="faq-item"><h3>{{ q }}</h3><p>{{ a }}</p></div>
+  {%- endfor %}
+</section>
+{%- endmacro %}
+
 {% macro data_json(id, value) -%}
 <script type="application/json" id="{{ id }}">{{ value | tojson }}</script>
 {%- endmacro %}

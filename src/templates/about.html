@@ -1,0 +1,42 @@
+{% extends "layout.html" %}
+{% block header %}
+    <h1>로또 연구소 소개</h1>
+    <p class="lede">{{ site.name }}는 동행복권이 공개한 로또 6/45 당첨번호를 정리하고 분석하는 사이트예요.<br>1회부터 {{ summary.latest.no }}회까지 {{ "{:,}".format(summary.total) }}회치 기록을 다뤄요.</p>
+{% endblock %}
+
+{% block content %}
+  <section class="card prose" aria-labelledby="what-h">
+    <h2 id="what-h">무엇을 할 수 있나요?</h2>
+    <dl>
+      {%- for item in nav %}
+      <dt><a class="link" href="{{ root }}{{ item.path }}">{{ item.label }}</a></dt>
+      <dd>{{ nav_blurbs[item.key] }}</dd>
+      {%- endfor %}
+    </dl>
+  </section>
+
+  <section class="card prose" aria-labelledby="data-h">
+    <h2 id="data-h">데이터는 어디서 오나요?</h2>
+    <p>당첨번호와 등수별 당첨금은 <a class="link" href="{{ site.official_url }}" target="_blank" rel="noopener">동행복권</a>이 공개한 자료예요.<br>공개 자료를 모아 둔 <a class="link" href="https://github.com/smok95/lotto" target="_blank" rel="noopener">smok95/lotto</a>에서 받아 와요.</p>
+    <p>매주 토요일 추첨이 끝나면 다음 날 오전에 새 회차가 자동으로 들어와요.<br>마지막 업데이트는 {{ date_ko(summary.latest.date) }} 추첨한 {{ summary.latest.no }}회예요.</p>
+    <p>자료에 오류가 있을 수 있어요. 정확한 결과는 동행복권 공식 사이트에서 확인하세요.</p>
+  </section>
+
+  <section class="card prose" aria-labelledby="how-h">
+    <h2 id="how-h">번호는 어떻게 만드나요?</h2>
+    <p>자주 나온 번호, 오래 안 나온 번호처럼 지난 기록을 보는 방법 {{ summary.strategy_count }}가지로 번호를 뽑아요.</p>
+    <p>하지만 로또는 회차마다 새로 추첨해서 어떤 방법도 당첨 확률을 바꾸지 못해요.<br>실제로 최근 {{ report.test_span[1] - report.test_span[0] + 1 }}회로 시험해 보면, 가장 좋던 방법도 아무렇게나 고른 것과 차이가 없었어요.</p>
+    <p>그래서 이 사이트의 모든 기능은 재미로 즐기는 용도예요.</p>
+  </section>
+
+  <section class="card prose" aria-labelledby="ads-h">
+    <h2 id="ads-h">광고 안내</h2>
+    <p>사이트 운영을 위해 쿠팡 파트너스 배너를 달고 있어요.<br>배너를 통해 상품을 사면 {{ site.name }}가 일정액의 수수료를 받아요. 사는 사람이 내는 금액은 똑같아요.</p>
+    <p>{{ site.name }}는 방문자의 개인정보를 따로 모으지 않아요. 화면 테마 설정만 브라우저에 저장해요.</p>
+  </section>
+
+  <section class="card prose" aria-labelledby="contact-h">
+    <h2 id="contact-h">문의</h2>
+    <p>오류 제보나 제안은 <a class="link" href="mailto:{{ site.email }}">{{ site.email }}</a>로 보내 주세요.</p>
+  </section>
+{% endblock %}

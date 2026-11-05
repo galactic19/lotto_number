@@ -60,6 +60,8 @@
     <p class="lede">낮은 번호는 1~{{ stats.half }}, 높은 번호는 {{ stats.half + 1 }}~{{ stats.max }} 기준이에요.</p>
   </section>
 
+  {{ ui.faq(faq, "로또 " ~ d.no ~ "회 자주 묻는 질문") }}
+
   <nav class="pager" aria-label="다른 회차">
     {%- if prev %}<a href="{{ root }}{{ draw_path(prev) }}">← {{ prev.no }}회</a>{% else %}<span></span>{% endif %}
     {%- if next %}<a href="{{ root }}{{ draw_path(next) }}">{{ next.no }}회 →</a>{% endif %}

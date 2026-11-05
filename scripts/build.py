@@ -21,6 +21,9 @@ import shutil
 import string
 import urllib.request
 from collections import Counter
+from datetime import date, timedelta
+from functools import cached_property
+from math import comb
 from dataclasses import dataclass, field
 from itertools import groupby
 from pathlib import Path
@@ -59,6 +62,7 @@ class Site:
     og_size: tuple[int, int] = (1200, 630)
     theme_key: str = "lotto-lab-theme"
     email: str = "support@lottelab.app"
+    official_url: str = "https://www.dhlottery.co.kr/"
     # Search engine ownership tokens: {meta name: content}. Empty values are skipped.
     verifications: tuple[tuple[str, str], ...] = (
         ("naver-site-verification", "c1b5cc5bb9bafa04f4103ab450372ecf8299d375"),
@@ -92,7 +96,17 @@ NAV = [
     NavItem("pension", "연금복권720+", "pension/"),
 ]
 NAV_PATH = {item.key: item.path for item in NAV}
+NAV_BLURBS = {
+    "home": "지난 당첨번호를 분석한 여러 방법으로 로또 번호를 뽑아 드려요.",
+    "draws": "1회부터 모든 회차의 당첨번호, 등수별 당첨금, 실수령액을 볼 수 있어요.",
+    "patterns": "자주 나오는 번호 같은 규칙이 정말 통하는지 실제 기록으로 시험한 결과예요.",
+    "calculator": "당첨금을 넣으면 세금과 실제로 받는 돈을 계산해요.",
+    "check": "내 번호로 1회부터 매주 샀다면 몇 번 당첨됐을지 알려 드려요.",
+    "pension": "연금복권720+ 번호를 뽑고 등수별 당첨금을 확인해요.",
+}
 YEARS_PATH = f"{NAV_PATH['draws']}years/"
+ABOUT_PATH = "about/"
+DRAW_INTERVAL_DAYS = 7     # 6/45 is drawn every Saturday
 ROWS_PER_AD = 15          # draws-list tables get a banner after every this many rows
 
 
@@ -295,6 +309,15 @@ def date_ko(iso: str) -> str:
     return f"{y}년 {int(m)}월 {int(d)}일"
 
 
+WEEKDAYS_KO = "월화수목금토일"
+
+
+def next_draw_date(iso: str) -> str:
+    """The draw after `iso`, with its weekday: 2026년 11월 7일 토요일."""
+    nxt = date.fromisoformat(iso) + timedelta(days=DRAW_INTERVAL_DAYS)
+    return f"{date_ko(nxt.isoformat())} {WEEKDAYS_KO[nxt.weekday()]}요일"
+
+
 def date_dot(iso: str) -> str:
     """Compact date for tables and labels: 2026.10.31."""
     return iso.replace("-", ".")
@@ -382,13 +405,76 @@ class SitePages:
         self.draws, self.summary = draws, summary
         self.latest_date = summary.latest.date
 
+    @cached_property
+    def report(self):
+        """Pattern analysis shared by the home summary, the FAQ and the /patterns/ page."""
+        return PatternAnalysis([d.numbers for d in self.draws], MAX_NUMBER, PICK_COUNT).run()
+
     def all(self) -> list[Page]:
-        return [self.home(), *self.year_pages(), *self.draw_pages(), self.patterns(), self.calculator(), self.check(), self.pension()]
+        return [self.home(), *self.year_pages(), *self.draw_pages(), self.patterns(), self.calculator(), self.check(),
+                self.pension(), self.about()]
+
+    def home_faq(self) -> list[tuple[str, str]]:
+        r, test_n = self.report, self.report.test_span[1] - self.report.test_span[0] + 1
+        top = r.counts[:PICK_COUNT]
+        return [
+            ("가장 많이 나온 로또 번호는 무엇인가요?",
+             f"1회부터 {r.draws}회까지 가장 많이 나온 번호는 "
+             + ", ".join(f"{n}번({c}회)" for n, c in top) + "이에요. 다만 이 정도 차이는 우연으로도 흔히 생겨요."),
+            ("로또 1등 당첨 확률은 얼마인가요?",
+             f"로또 1등 확률은 1/{comb(MAX_NUMBER, PICK_COUNT):,}이에요. {MAX_NUMBER}개 숫자 중 {PICK_COUNT}개를 고르는 "
+             "모든 조합의 수라서, 어떤 번호를 골라도 확률은 같아요."),
+            ("번호 생성기를 쓰면 당첨 확률이 올라가나요?",
+             f"아니요. 지난 기록에서 가장 잘 맞던 방법도 최근 {test_n}회에서는 평균 {r.best.test:.2f}개를 맞혀, "
+             f"아무렇게나 고른 것({r.chance:.2f}개)과 차이가 없었어요. 재미로 즐기는 도구예요."),
+        ]
+
+    def draw_faq(self, d: "Draw", is_latest: bool) -> list[tuple[str, str]]:
+        first, tax = d.first, compute_tax(d.first.prize)
+        items = [(f"로또 {d.no}회 당첨번호는 무엇인가요?",
+                  f"로또 {d.no}회({date_ko(d.date)}) 당첨번호는 {Summary.join(d.numbers)}이고, 보너스 번호는 {d.bonus}번이에요.")]
+        items.append((f"로또 {d.no}회 1등 당첨금과 실수령액은 얼마인가요?",
+                      f"로또 {d.no}회 1등은 {first.winners}명이고, 1인당 당첨금은 {won(first.prize)}이에요. "
+                      f"세금 {won(tax.tax)}을 떼면 실제로 받는 돈은 {won(tax.net)}이에요."
+                      if first.winners else
+                      f"로또 {d.no}회는 1등 당첨자가 없어서, 1등 당첨금이 다음 회차로 넘어갔어요."))
+        if len(d.divisions) > 1 and d.divisions[1].winners:
+            second = d.divisions[1]
+            items.append((f"로또 {d.no}회 2등 당첨금은 얼마인가요?",
+                          f"로또 {d.no}회 2등은 {second.winners:,}명이고, 1인당 {won(second.prize)}을 받아요."))
+        if is_latest:
+            items.append(("다음 로또 추첨은 언제인가요?",
+                          f"다음 회차인 {d.no + 1}회 추첨은 {next_draw_date(d.date)} 저녁이에요. "
+                          "결과는 추첨 다음 날 오전에 이 사이트에 자동으로 올라와요."))
+        return items
+
+    def calculator_faq(self, record: "Draw") -> list[tuple[str, str]]:
+        rules, latest = RULES["tax"], self.summary.latest
+        brackets = ", ".join(f"{josa(b['range'], '은/는')} {round(b['rate'] * 100)}%" for b in rules["brackets"])
+        details = ", ".join(f"{round(b['rate'] * 100)}%는 {b['detail'].replace(' + ', '와 ')}를" for b in rules["brackets"])
+        latest_tax, record_tax = compute_tax(latest.first.prize), compute_tax(record.first.prize)
+        return [
+            ("로또 당첨금은 얼마부터 세금을 내나요?",
+             f"당첨금이 {won(rules['taxFreeLimit'])}을 넘으면 세금을 내요. 그 이하는 세금이 없어서 4등과 5등은 보통 그대로 다 받아요."),
+            ("로또 1등 세금은 몇 %인가요?", f"{brackets}예요. {details} 합친 비율이에요."),
+            (f"이번 주 로또 {latest.no}회 1등 실수령액은 얼마인가요?",
+             f"{latest.no}회 1등 당첨금 {won(latest.first.prize)}에서 세금 {won(latest_tax.tax)}을 떼면 {won(latest_tax.net)}을 받아요."),
+            ("역대 가장 큰 로또 1등 당첨금은 얼마인가요?",
+             f"{record.no}회({date_ko(record.date)})의 {won(record.first.prize)}이에요. 세금을 떼면 {won(record_tax.net)}이에요."),
+        ]
+
+    def about(self) -> Page:
+        latest = self.summary.latest
+        return Page(ABOUT_PATH, "about.html", "about", SITE.title("로또 연구소 소개"),
+                    f"{SITE.name}는 동행복권이 공개한 로또 6/45 당첨번호 {self.summary.total:,}회치를 정리하고 분석하는 사이트예요. "
+                    "데이터 출처, 업데이트 주기, 번호 생성 방식, 광고 안내, 문의처를 소개해요.",
+                    ["common.js"], {"report": self.report, "nav_blurbs": NAV_BLURBS}, "AboutPage", latest.date)
 
     def home(self) -> Page:
         return Page("", "home.html", "home", SITE.title("로또 번호 생성기 · 당첨번호 분석으로 고르는 로또 번호 추천"),
                     self.summary.description, ["common.js", "home.js"],
-                    {"draws_payload": [d.payload() for d in self.draws]}, "WebApplication", self.latest_date)
+                    {"draws_payload": [d.payload() for d in self.draws], "faq": self.home_faq(), "report": self.report},
+                    "WebApplication", self.latest_date)
 
     def year_pages(self) -> list[Page]:
         """One list page per year (newest first). The latest year lives at /draws/ so the index stays short."""
@@ -431,12 +517,13 @@ class SitePages:
                 f"{prize_text}. 등수별 당첨금과 번호 분석도 볼 수 있어요.",
                 ["common.js"],
                 {"d": d, "first": first, "first_tax": first_tax, "ranks": ranks, "stats": stats[d.no],
-                 "prev": self.draws[i - 1] if i else None, "next": self.draws[i + 1] if i + 1 < len(self.draws) else None},
+                 "prev": self.draws[i - 1] if i else None, "next": self.draws[i + 1] if i + 1 < len(self.draws) else None,
+                 "faq": self.draw_faq(d, i + 1 == len(self.draws))},
                 "WebPage", d.date))
         return pages
 
     def patterns(self) -> Page:
-        report = PatternAnalysis([d.numbers for d in self.draws], MAX_NUMBER, PICK_COUNT).run()
+        report = self.report
         best = report.best
         return Page(NAV_PATH["patterns"], "patterns.html", "patterns",
                     SITE.title("로또 패턴 분석 · 당첨번호에 규칙이 있을까?"),
@@ -458,7 +545,7 @@ class SitePages:
                     f"로또 당첨금을 넣으면 세금과 실수령액을 바로 계산해요. {latest.no}회 1등 당첨금 {won(latest.first.prize)}을 받으면 "
                     f"실제로 {won(compute_tax(latest.first.prize).net)}이 손에 들어와요. 세금은 3억 원까지 22%, 넘는 부분은 33%예요.",
                     ["common.js", "calculator.js"],
-                    {"presets": presets, "record": record, "latest_first": latest.first,
+                    {"presets": presets, "record": record, "latest_first": latest.first, "faq": self.calculator_faq(record),
                      "latest_first_tax": compute_tax(latest.first.prize)},
                     "WebApplication", self.latest_date)
 
@@ -553,6 +640,21 @@ class OgImage:
         img.save(out, optimize=True)
 
 
+def llms_txt(pages: list[Page], summary: Summary) -> str:
+    """Plain-text site map for AI assistants (llmstxt.org). Google ignores it; other assistants may read it."""
+    sections = [p for p in pages if p.path in {n.path for n in NAV} | {ABOUT_PATH}]
+    latest = summary.latest
+    lines = [f"# {SITE.name}", "", f"> {summary.description}", "", "## 주요 페이지"]
+    lines += [f"- [{p.title.split(' | ')[0]}]({p.url}): {p.description}" for p in sections]
+    lines += ["", "## 핵심 정보",
+              f"- 최신 회차: {latest.no}회 ({date_ko(latest.date)}), 당첨번호 {Summary.join(latest.numbers)}, 보너스 {latest.bonus}",
+              f"- 회차별 페이지: {SITE.absolute(NAV_PATH['draws'])}{{회차}}/ 형식 (1~{latest.no}회)",
+              f"- 데이터 출처: 동행복권 공개 당첨번호 ({SITE.official_url}), 매주 토요일 추첨 후 다음 날 오전 자동 업데이트",
+              "- 번호 생성과 분석은 재미용이며 당첨 확률을 높이지 않아요",
+              f"- 문의: {SITE.email}", ""]
+    return "\n".join(lines)
+
+
 def robots() -> str:
     """Allow everything and point crawlers at the sitemap (only honoured at a domain root)."""
     return f"User-agent: *\nAllow: /\n\nSitemap: {SITE.absolute('sitemap.xml')}\n"
@@ -572,7 +674,8 @@ class SiteBuilder:
         self.env = Environment(loader=FileSystemLoader(TEMPLATES), autoescape=True, undefined=StrictUndefined,
                                trim_blocks=True, lstrip_blocks=True)
         self.env.globals.update(site=SITE, nav=NAV, rules=RULES, summary=self.summary,
-                                ball_band=TOKENS.ball_band, draw_path=draw_path, date_ko=date_ko, date_dot=date_dot, won_eok=won_eok)
+                                ball_band=TOKENS.ball_band, draw_path=draw_path, date_ko=date_ko, date_dot=date_dot, won_eok=won_eok,
+                                about_path=ABOUT_PATH)
         self.env.filters["josa"] = josa
         self.fonts = FontSubset(FONT_URL, FONT_CACHE)
         self.version = self.source_hash()
@@ -612,6 +715,7 @@ class SiteBuilder:
             self.write(f"{path}index.html", html)
         self.write("sitemap.xml", sitemap(pages))
         self.write("robots.txt", robots())
+        self.write("llms.txt", llms_txt(pages, self.summary))
         self.write("CNAME", f"{SITE.domain}\n")
         OgImage(self.summary, self.fonts.path()).render(OUT / SITE.og_image)
 

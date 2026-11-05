@@ -41,10 +41,14 @@
 
   <section class="card" aria-labelledby="bt-h">
     <div class="sec-head"><h2 id="bt-h">지난 회차로 시험해 보기</h2><span class="eyebrow" id="bt-label"></span></div>
+    {%- set test_n = report.test_span[1] - report.test_span[0] + 1 %}
+    <p class="lede"><strong>요약:</strong> 지난 기록에서 가장 잘 맞던 방법도 최근 {{ test_n }}회에서는 평균 {{ "{:.2f}".format(report.best.test) }}개를 맞혀, 아무렇게나 고른 것({{ "{:.2f}".format(report.chance) }}개)과 차이가 없었어요.{% if not inline %} 자세한 결과는 <a class="link" href="{{ root }}patterns/">패턴 분석</a>에 있어요.{% endif %}</p>
     <p class="lede" id="bt-desc"></p>
     <div class="table-box"><table id="bt-table"></table></div>
     <p class="note">로또는 회차마다 새로 추첨해서, 어떤 방법을 써도 당첨 확률은 그대로예요.<br>1등 확률은 어떤 번호든 똑같이 1/<span id="odds" class="mono"></span>이에요. 재미로만 즐겨 주세요.</p>
   </section>
+
+  {{ ui.faq(faq) }}
 
   <section class="card prose" aria-labelledby="about-h">
     <h2 id="about-h">로또 연구소는 이렇게 번호를 골라요</h2>

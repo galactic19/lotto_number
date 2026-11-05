@@ -149,7 +149,7 @@ footer a { color: inherit; }
 
 /* Site navigation */
 /* Site navigation: one tab bar on its own surface, items spaced and divided so each reads as a separate destination */
-.site-nav { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; margin-block: 4px 14px;
+.site-nav { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; margin: 0;
   background: var(--surface); border-radius: 14px; padding: 6px; }
 .site-nav::-webkit-scrollbar { display: none; }
 .site-nav a { flex: 1 0 auto; text-align: center; color: var(--ink); text-decoration: none; font-weight: 600; font-size: .92rem;
@@ -264,3 +264,18 @@ h3.sub { font-size: 1rem; font-weight: 700; margin: 0; }
 
 /* Second heading inside a page header (e.g. the draw index under "이번 주 로또 당첨번호") */
 h2.sub-title { font-size: 1.2rem; margin-top: 12px; }
+
+/* Phones: keep the menu pinned to the top while scrolling. The band above it (notch area) is painted by body::before. */
+@media (max-width: 760px) {
+  .site-nav { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 15;
+    box-shadow: 0 6px 16px -10px rgba(0, 0, 0, .35); }
+  body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 16; background: var(--bg); }
+  .card, h1, h2, h3 { scroll-margin-top: 120px; }   /* in-page jumps land below the pinned menu */
+}
+
+/* FAQ: question as a heading, answer as one self-contained paragraph */
+.faq { gap: 14px; }
+.faq-item { display: grid; gap: 4px; padding-top: 14px; border-top: 1px solid var(--rule); }
+.faq-item:first-of-type { border-top: 0; padding-top: 0; }
+.faq-item h3 { font-size: 1rem; font-weight: 700; margin: 0; }
+.faq-item p { color: var(--muted); max-width: 68ch; }
