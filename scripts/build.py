@@ -58,6 +58,7 @@ class Site:
     og_image: str = "og.png"
     og_size: tuple[int, int] = (1200, 630)
     theme_key: str = "lotto-lab-theme"
+    email: str = "support@lottelab.app"
 
     @property
     def url(self) -> str:
@@ -361,6 +362,7 @@ class Page:
                      "offers": {"@type": "Offer", "price": "0", "priceCurrency": "KRW"}}
         if self.lastmod:
             main["dateModified"] = self.lastmod
+        main["publisher"] = {"@type": "Organization", "name": SITE.name, "url": SITE.url, "email": SITE.email}
         blocks = [main]
         crumbs = self.breadcrumbs()
         if len(crumbs) > 1:

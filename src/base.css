@@ -135,7 +135,8 @@ td.num { font-weight: 600; }
 .prose dt { font-weight: 700; }
 .prose dd { margin: 0; }
 @media (max-width: 520px) { .prose dl { grid-template-columns: 1fr; gap: 2px; } .prose dd { margin-bottom: 8px; } }
-footer { color: var(--muted); font-size: .82rem; padding-top: 8px; }
+footer { color: var(--muted); font-size: .82rem; padding-top: 8px; display: grid; gap: 6px; }
+footer p { margin: 0; }
 footer a { color: inherit; }
 .go:disabled { opacity: .55; cursor: progress; }
 .why { transition: opacity .3s; }
