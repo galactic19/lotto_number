@@ -1,0 +1,41 @@
+{% extends "layout.html" %}
+{% block header %}
+    <h1>개인정보 처리방침</h1>
+    <p class="lede">{{ site.name }}({{ site.domain }})는 방문자의 개인정보를 직접 모으지 않아요.<br>다만 광고와 호스팅 과정에서 다른 회사가 쿠키나 접속 기록을 쓸 수 있어서, 그 내용을 알려 드려요.</p>
+{% endblock %}
+
+{% block content %}
+  <section class="card prose" aria-labelledby="collect-h">
+    <h2 id="collect-h">1. 우리가 모으는 정보</h2>
+    <p>회원가입, 입력 양식, 방문자 분석 도구가 없어서 이름, 연락처, 이메일 같은 개인정보를 받지 않아요.</p>
+    <p>'내 번호 확인'에 넣은 번호는 내 브라우저 안에서만 계산하고 서버로 보내지 않아요.</p>
+  </section>
+
+  <section class="card prose" aria-labelledby="storage-h">
+    <h2 id="storage-h">2. 브라우저에 저장하는 정보</h2>
+    <p>고른 화면 테마(시스템, 라이트, 다크)를 다음 방문 때도 쓰도록 브라우저 저장소에 남겨요.<br>이 값은 내 기기에만 있고, 브라우저 설정에서 언제든 지울 수 있어요.</p>
+  </section>
+
+  <section class="card prose" aria-labelledby="ads-h">
+    <h2 id="ads-h">3. 광고와 쿠키</h2>
+    <p>{{ site.name }}는 쿠팡 파트너스와 Google 애드센스 광고를 실을 수 있어요.<br>이 회사들은 광고를 보여 주고 성과를 재기 위해 쿠키를 써요.</p>
+    <ul>
+      <li><strong>Google</strong>을 포함한 제3자 광고 업체는 쿠키를 써서, 이용자가 이 사이트와 다른 사이트에 방문했던 기록을 바탕으로 광고를 보여 줘요.</li>
+      <li>Google은 광고 쿠키를 써서 이용자의 방문 기록에 맞는 광고를 보여 줄 수 있어요. <a class="link" href="https://myadcenter.google.com/" target="_blank" rel="noopener">Google 내 광고 센터</a>에서 맞춤 광고를 끌 수 있어요.</li>
+      <li>다른 업체의 맞춤 광고 쿠키는 <a class="link" href="https://www.aboutads.info/choices/" target="_blank" rel="noopener">aboutads.info</a>에서 끌 수 있어요.</li>
+      <li>쿠팡 파트너스 배너를 누르면 쿠팡이 구매 실적을 확인하려고 쿠키를 저장해요. 자세한 내용은 쿠팡의 개인정보 처리방침을 따라요.</li>
+    </ul>
+    <p>Google이 광고 데이터를 어떻게 쓰는지는 <a class="link" href="https://policies.google.com/technologies/partner-sites" target="_blank" rel="noopener">Google 파트너 사이트 데이터 사용 안내</a>에서 볼 수 있어요.</p>
+  </section>
+
+  <section class="card prose" aria-labelledby="host-h">
+    <h2 id="host-h">4. 호스팅 서버 기록</h2>
+    <p>이 사이트는 GitHub Pages에서 운영해요. GitHub은 보안과 서비스 운영을 위해 접속한 IP 주소 같은 기록을 남길 수 있어요.<br>자세한 내용은 <a class="link" href="https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement" target="_blank" rel="noopener">GitHub 개인정보 처리방침</a>을 따라요.</p>
+  </section>
+
+  <section class="card prose" aria-labelledby="contact-h">
+    <h2 id="contact-h">5. 문의와 변경</h2>
+    <p>궁금한 점은 <a class="link" href="mailto:{{ site.email }}">{{ site.email }}</a>로 보내 주세요.</p>
+    <p>이 방침은 {{ date_ko(site.privacy_effective) }}부터 적용해요. 내용이 바뀌면 이 페이지에 먼저 알려 드려요.</p>
+  </section>
+{% endblock %}

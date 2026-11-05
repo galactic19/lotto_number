@@ -79,7 +79,7 @@
   </aside>
 
   <footer>
-    <p>{% if not inline %}<a href="{{ root }}{{ about_path }}">사이트 소개</a> · {% endif %}문의: <a href="mailto:{{ site.email }}">{{ site.email }}</a></p>
+    <p>{% if not inline %}<a href="{{ root }}{{ about_path }}">사이트 소개</a> · <a href="{{ root }}{{ privacy_path }}">개인정보 처리방침</a> · {% endif %}문의: <a href="mailto:{{ site.email }}">{{ site.email }}</a></p>
     <p>당첨번호 출처: <a href="{{ site.official_url }}" target="_blank" rel="noopener">동행복권 공식 사이트</a> (데이터 수집: <a href="https://github.com/smok95/lotto" target="_blank" rel="noopener">smok95/lotto</a>).<br>정확한 결과는 동행복권 공식 사이트에서 확인하세요. 마지막 업데이트: {{ date_ko(summary.latest.date) }} ({{ summary.latest.no }}회)</p>
   </footer>
 </div>

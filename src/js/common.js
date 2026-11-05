@@ -14,7 +14,7 @@ const SITE = Object.freeze({
   /* Fill in the IDs, then rebuild. Open any page with #ad-preview to see the slots. */
   ads: {
     provider: "coupang",                     // "coupang" | "adsense" | "" (off)
-    adsenseClient: "",                       // "ca-pub-…"
+    adsenseClient: "ca-pub-5041255766673600", // also drives the verification meta tag and ads.txt (build.py)
     coupang: {
       trackingCode: "AF1710075",             // "AF…" from Coupang Partners
       template: "carousel",

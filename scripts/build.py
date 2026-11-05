@@ -63,10 +63,19 @@ class Site:
     theme_key: str = "lotto-lab-theme"
     email: str = "support@lottelab.app"
     official_url: str = "https://www.dhlottery.co.kr/"
-    # Search engine ownership tokens: {meta name: content}. Empty values are skipped.
-    verifications: tuple[tuple[str, str], ...] = (
-        ("naver-site-verification", "c1b5cc5bb9bafa04f4103ab450372ecf8299d375"),
-    )
+    naver_verification: str = "c1b5cc5bb9bafa04f4103ab450372ecf8299d375"
+    privacy_effective: str = "2026-11-05"     # 개인정보 처리방침 시행일
+
+    @property
+    def adsense_client(self) -> str:
+        """Single source: SITE.ads.adsenseClient in common.js."""
+        return TOKENS.js_string("adsenseClient")
+
+    @property
+    def verifications(self) -> tuple[tuple[str, str], ...]:
+        """Ownership meta tags {name: content}; empty values are skipped by the layout."""
+        return (("naver-site-verification", self.naver_verification),
+                ("google-adsense-account", self.adsense_client))
 
     @property
     def url(self) -> str:
@@ -106,6 +115,8 @@ NAV_BLURBS = {
 }
 YEARS_PATH = f"{NAV_PATH['draws']}years/"
 ABOUT_PATH = "about/"
+PRIVACY_PATH = "privacy/"
+ADS_TXT_GOOGLE = "google.com, {pub}, DIRECT, f08c47fec0942fa0"   # Google's published ads.txt line
 DRAW_INTERVAL_DAYS = 7     # 6/45 is drawn every Saturday
 ROWS_PER_AD = 15          # draws-list tables get a banner after every this many rows
 
@@ -124,6 +135,9 @@ class SourceTokens:
 
     def js_number(self, key: str) -> int:
         return int(re.search(rf"\b{key}:\s*(\d+)", self.common_js).group(1))
+
+    def js_string(self, key: str) -> str:
+        return re.search(rf'\b{key}:\s*"([^"]*)"', self.common_js).group(1)
 
     @property
     def ball_groups(self) -> list[int]:
@@ -415,7 +429,7 @@ class SitePages:
 
     def all(self) -> list[Page]:
         return [self.home(), *self.year_pages(), *self.draw_pages(), self.patterns(), self.calculator(), self.check(),
-                self.pension(), self.about(), self.not_found()]
+                self.pension(), self.about(), self.privacy(), self.not_found()]
 
     def not_found(self) -> Page:
         return Page("", "404.html", "", SITE.title("페이지를 찾을 수 없어요"),
@@ -470,6 +484,11 @@ class SitePages:
             ("역대 가장 큰 로또 1등 당첨금은 얼마인가요?",
              f"{record.no}회({date_ko(record.date)})의 {won(record.first.prize)}이에요. 세금을 떼면 {won(record_tax.net)}이에요."),
         ]
+
+    def privacy(self) -> Page:
+        return Page(PRIVACY_PATH, "privacy.html", "privacy", SITE.title("개인정보 처리방침"),
+                    f"{SITE.name}는 방문자의 개인정보를 직접 모으지 않아요. 광고 쿠키, 브라우저 저장소, 호스팅 서버 기록을 어떻게 다루는지 안내해요.",
+                    ["common.js"], {}, "WebPage", SITE.privacy_effective)
 
     def about(self) -> Page:
         latest = self.summary.latest
@@ -683,7 +702,7 @@ class SiteBuilder:
                                trim_blocks=True, lstrip_blocks=True)
         self.env.globals.update(site=SITE, nav=NAV, rules=RULES, summary=self.summary,
                                 ball_band=TOKENS.ball_band, draw_path=draw_path, date_ko=date_ko, date_dot=date_dot, won_eok=won_eok,
-                                about_path=ABOUT_PATH)
+                                about_path=ABOUT_PATH, privacy_path=PRIVACY_PATH)
         self.env.filters["josa"] = josa
         self.fonts = FontSubset(FONT_URL, FONT_CACHE)
         self.version = self.source_hash()
@@ -724,6 +743,8 @@ class SiteBuilder:
         self.write("sitemap.xml", sitemap(pages))
         self.write("robots.txt", robots())
         self.write("llms.txt", llms_txt(pages, self.summary))
+        if SITE.adsense_client:
+            self.write("ads.txt", ADS_TXT_GOOGLE.format(pub=SITE.adsense_client.removeprefix("ca-")) + "\n")
         self.write("CNAME", f"{SITE.domain}\n")
         OgImage(self.summary, self.fonts.path()).render(OUT / SITE.og_image)
 
