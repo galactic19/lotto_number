@@ -12,8 +12,12 @@
 <script>try{var k=document.querySelector('meta[name="theme-storage-key"]').content,t=localStorage.getItem(k);if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
 {%- if not inline %}
 <meta name="description" content="{{ page.description }}">
+{%- if page.indexable %}
 <link rel="canonical" href="{{ page.url }}">
 <meta name="robots" content="index, follow, max-image-preview:large">
+{%- else %}
+<meta name="robots" content="noindex">
+{%- endif %}
 {%- for name, token in site.verifications if token %}
 <meta name="{{ name }}" content="{{ token }}">
 {%- endfor %}

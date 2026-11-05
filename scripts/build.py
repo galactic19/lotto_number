@@ -362,6 +362,8 @@ class Page:
     context: dict = field(default_factory=dict)
     schema_type: str = "WebPage"
     lastmod: str = ""
+    output: str = "index.html"     # file written under `path`
+    indexable: bool = True         # False: noindex, kept out of the sitemap and llms.txt
 
     @property
     def url(self) -> str:
@@ -369,7 +371,8 @@ class Page:
 
     @property
     def root(self) -> str:
-        return "../" * self.path.count("/")
+        # The 404 page is served at any depth, so it must link from the domain root.
+        return "/" if not self.indexable else "../" * self.path.count("/")
 
     def breadcrumbs(self) -> list[tuple[str, str]]:
         trail = [(SITE.name, SITE.url)]
@@ -412,7 +415,12 @@ class SitePages:
 
     def all(self) -> list[Page]:
         return [self.home(), *self.year_pages(), *self.draw_pages(), self.patterns(), self.calculator(), self.check(),
-                self.pension(), self.about()]
+                self.pension(), self.about(), self.not_found()]
+
+    def not_found(self) -> Page:
+        return Page("", "404.html", "", SITE.title("페이지를 찾을 수 없어요"),
+                    "주소가 바뀌었거나 없는 페이지예요. 아래 메뉴에서 원하는 페이지로 이동하세요.",
+                    ["common.js"], {"nav_blurbs": NAV_BLURBS}, output="404.html", indexable=False)
 
     def home_faq(self) -> list[tuple[str, str]]:
         r, test_n = self.report, self.report.test_span[1] - self.report.test_span[0] + 1
@@ -642,7 +650,7 @@ class OgImage:
 
 def llms_txt(pages: list[Page], summary: Summary) -> str:
     """Plain-text site map for AI assistants (llmstxt.org). Google ignores it; other assistants may read it."""
-    sections = [p for p in pages if p.path in {n.path for n in NAV} | {ABOUT_PATH}]
+    sections = [p for p in pages if p.indexable and p.path in {n.path for n in NAV} | {ABOUT_PATH}]
     latest = summary.latest
     lines = [f"# {SITE.name}", "", f"> {summary.description}", "", "## 주요 페이지"]
     lines += [f"- [{p.title.split(' | ')[0]}]({p.url}): {p.description}" for p in sections]
@@ -661,7 +669,7 @@ def robots() -> str:
 
 
 def sitemap(pages: list[Page]) -> str:
-    urls = "\n".join(f"  <url><loc>{p.url}</loc><lastmod>{p.lastmod}</lastmod></url>" for p in pages)
+    urls = "\n".join(f"  <url><loc>{p.url}</loc><lastmod>{p.lastmod}</lastmod></url>" for p in pages if p.indexable)
     return ('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
             f"{urls}\n</urlset>\n")
 
@@ -700,10 +708,10 @@ class SiteBuilder:
         if OUT.exists():
             shutil.rmtree(OUT)
         pages = SitePages(self.draws, self.summary).all()
-        html_by_path = {page.path: self.render(page) for page in pages}
+        rendered = [(page, self.render(page)) for page in pages]
 
         scripts = sorted({s for page in pages for s in page.scripts})
-        glyph_text = "".join(html_by_path.values()) + "".join(self.js(s) for s in scripts) + BASE_CSS.read_text(encoding="utf-8")
+        glyph_text = "".join(html for _, html in rendered) + "".join(self.js(s) for s in scripts) + BASE_CSS.read_text(encoding="utf-8")
         font = self.fonts.build(glyph_text)
         css = BASE_CSS.read_text(encoding="utf-8")
 
@@ -711,8 +719,8 @@ class SiteBuilder:
         self.write(f"{ASSETS}site.css", FontSubset.face(f"{FONT_FILE}?v={self.version}") + css)
         for script in scripts:
             self.write(f"{ASSETS}{script}", self.js(script))
-        for path, html in html_by_path.items():
-            self.write(f"{path}index.html", html)
+        for page, html in rendered:
+            self.write(f"{page.path}{page.output}", html)
         self.write("sitemap.xml", sitemap(pages))
         self.write("robots.txt", robots())
         self.write("llms.txt", llms_txt(pages, self.summary))
