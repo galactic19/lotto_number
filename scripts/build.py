@@ -59,6 +59,10 @@ class Site:
     og_size: tuple[int, int] = (1200, 630)
     theme_key: str = "lotto-lab-theme"
     email: str = "support@lottelab.app"
+    # Search engine ownership tokens: {meta name: content}. Empty values are skipped.
+    verifications: tuple[tuple[str, str], ...] = (
+        ("naver-site-verification", "c1b5cc5bb9bafa04f4103ab450372ecf8299d375"),
+    )
 
     @property
     def url(self) -> str:

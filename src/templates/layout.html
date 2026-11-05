@@ -14,6 +14,9 @@
 <meta name="description" content="{{ page.description }}">
 <link rel="canonical" href="{{ page.url }}">
 <meta name="robots" content="index, follow, max-image-preview:large">
+{%- for name, token in site.verifications if token %}
+<meta name="{{ name }}" content="{{ token }}">
+{%- endfor %}
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="{{ site.name }}">
 <meta property="og:locale" content="{{ site.locale }}">
